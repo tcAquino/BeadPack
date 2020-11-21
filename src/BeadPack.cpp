@@ -1,15 +1,14 @@
 //
 //  main.cpp
-//  Beadpack_fpt
+//  BeadPack_Conservative
 //
-//  Created by Tomás Aquino on 10/11/2020.
+//  Created by Tomás Aquino on 19/11/2020.
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
 //
 
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <random>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -34,7 +33,7 @@ int main(int argc, const char * argv[])
 {
   const std::size_t dim = 3;
   
-  if (argc != 11 && argc != 12 && argc != 13 && argc != 14)
+  if (argc != 15 && argc != 16 && argc != 17 && argc != 18)
   {
     throw useful::bad_parameters();
   }
@@ -59,10 +58,14 @@ int main(int argc, const char * argv[])
   double Peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
+  double time_min_diffusion_times = atof(argv[arg++]);
+  double time_max_diffusion_times = atof(argv[arg++]);
+  std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
+  int measure_spacing = atoi(argv[arg++]);
   int measure_type = atoi(argv[arg++]);
   int initial_condition_type = atoi(argv[arg++]);
   double initial_condition_size_domains = atof(argv[arg++]);
-  std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
+  std::size_t nr_particles = strtoul(argv[arg++], NULL, 0);
   std::size_t run_nr = strtoul(argv[arg++], NULL, 0);
   std::string data_set = argv[arg++];
   std::string filename_input_positions = argc > arg ? argv[arg++] : "";
@@ -138,6 +141,7 @@ int main(int argc, const char * argv[])
   double mean_velocity_magnitude = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
+  
   std::cout << "Setting up particles...\n";
   double advection_time = domain_side/mean_velocity_magnitude;
   double diff = domain_side*mean_velocity_magnitude/Peclet;
@@ -145,9 +149,6 @@ int main(int argc, const char * argv[])
   double time_step = std::min(time_step_accuracy_adv*advection_time,
     time_step_accuracy_diff*diffusion_time);
   double length_discretization = 10.*std::sqrt(2.*diff*time_step);
-  
-  auto near_wall = [length_discretization, &bead_pack](State const& state)
-  { return bead_pack.near(state.position, length_discretization).first; };
   
   Boundary_Periodic boundary_periodic{ boundaries };
   Boundary boundary{ bead_pack, boundary_periodic };
@@ -170,14 +171,16 @@ int main(int argc, const char * argv[])
   std::string initial_condition_name =
     beadpack::initial_condition_name(initial_condition_type);
   
-  auto particles = beadpack::make_particles<CTRW::Particle>(
-      nr_measures, initial_condition_type,
+  CTRW ctrw{
+    beadpack::make_particles<CTRW::Particle>(
+      nr_particles, initial_condition_type,
       domain_midpoint, initial_box_centered,
       velocity_field, mean_velocity,
       bead_pack, boundary_periodic,
       length_discretization,
       filename_input_positions,
-      state_maker);
+      state_maker),
+    CTRW::Tag{} };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up output...\n";
@@ -189,22 +192,42 @@ int main(int argc, const char * argv[])
          << Peclet << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
+         << time_min_diffusion_times << "_"
+         << time_max_diffusion_times << "_"
          << nr_measures << "_"
+         << measure_spacing << "_"
+         << nr_particles << "_"
          << run_nr;
   std::string params = stream.str();
   
-  std::string filename_output_base = "Data_beadpack_fp";
+  std::string filename_output_base = "Data_beadpack";
   
-  std::string filename_output_time = output_dir + "/" +
-    filename_output_base + "_time_" + initial_condition_name +
+  std::string filename_output_positions = output_dir + "/" +
+    filename_output_base + "_positions_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";
   
-  std::string filename_output_space = output_dir + "/" +
-    filename_output_base + "_space_" + initial_condition_name +
-    "_" + data_set + "_" + params + ".dat";
+  double time_min = time_min_diffusion_times*diffusion_time;
+  double time_max = time_max_diffusion_times*diffusion_time;
+  double dist_min = mean_velocity_magnitude*time_min;
+  double dist_max = mean_velocity_magnitude*time_max;
+  std::vector<double> measure_times, measure_distances;
+  switch (measure_spacing)
+  {
+    case 0:
+      measure_times = range::logspace(time_min, time_max, nr_measures);
+      measure_distances = range::logspace(dist_min, dist_max, nr_measures);
+      break;
+    case 1:
+      measure_times = range::linspace(time_min, time_max, nr_measures);
+      measure_distances = range::linspace(dist_min, dist_max, nr_measures);
+      break;
+    case 2:
+      break;
+    default:
+      throw std::runtime_error{ "Undefined measure spacing." };
+  }
   
-  auto getter_position_longitudinal = ctrw::Get_position_periodic_projection{
-    domain_dimensions, mean_velocity };
+  auto getter_position = ctrw::Get_position_periodic{ domain_dimensions };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up dynamics...\n";
@@ -213,7 +236,7 @@ int main(int argc, const char * argv[])
         JumpGenerator_Advection{
           velocity_field,
           time_step,
-          1,
+          nr_particles,
           boundary
         },
         JumpGenerator_Diffusion{
@@ -224,6 +247,7 @@ int main(int argc, const char * argv[])
       },
       boundary
   };
+  ctrw::PTRW ptrw(ctrw, transitions, time_step, 0.);
   std::cout << "\tDone!\n";
   
   std::cout << "Starting dynamics...\n";
@@ -238,71 +262,50 @@ int main(int argc, const char * argv[])
   {
     case 0:
     {
-      std::string filename_time{ filename_output_time };
-      std::ofstream output_time{ filename_time };
-      if (!output_time.is_open())
-        throw useful::open_write_error(filename_time);
-      output_time << std::setprecision(8)
-                  << std::scientific;
+      std::ofstream output_positions{ filename_output_positions };
+      if (!output_positions.is_open())
+        throw useful::open_write_error(filename_output_positions);
+      output_positions << std::setprecision(8)
+                       << std::scientific;
       
-      std::string filename_space{ filename_output_space };
-      std::ofstream output_space{ filename_space };
-      if (!output_space.is_open())
-        throw useful::open_write_error(filename_space);
-      output_space << std::setprecision(8)
-                   << std::scientific;
-      
-      std::string delimiter = "";
-      for (std::size_t pp = 0; pp < particles.size(); ++pp)
+      for (auto const& time : measure_times)
       {
-        std::cout << "Measure " << pp+1 << " of " << nr_measures << "\n";
-        CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
-        while (!near_wall(ptrw.particles(0).state_new()))
-          ptrw.step();
-        output_time << delimiter << ptrw.time();
-        output_space << delimiter
-                     << getter_position_longitudinal(ptrw.particles(0).state_new());
-        delimiter = "\t";
+        ptrw.evolve(time);
+        output_positions << time;
+        for (auto const& part : ptrw.particles())
+        {
+          useful::print(output_positions, getter_position(part.state_new()), 1);
+        }
+        output_positions << "\n";
+        std::cout << "time = " << time
+                  << "\ttime_last_measure = " << time_max
+                  << "\n";
       }
-      output_time << "\n";
-      output_space << "n";
-      
-      output_time.close();
-      output_space.close();
+      output_positions.close();
 
       break;
     }
     case 1:
     {
-      double mean_fpt = 0.;
-      double mean_fpd = 0.;
+      std::ofstream output_positions{ filename_output_positions };
+      if (!output_positions.is_open())
+        throw useful::open_write_error(filename_output_positions);
+      output_positions << std::setprecision(8)
+                       << std::scientific;
       
-      for (std::size_t pp = 0; pp < particles.size();)
+      for (auto const& time : measure_times)
       {
-        CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
-        while (!near_wall(ptrw.particles(0).state_new()))
-          ptrw.step();
-      
-        mean_fpt += ptrw.time();
-        mean_fpd += getter_position_longitudinal(ptrw.particles(0).state_new());
-        ++pp;
+        ptrw.evolve(time);
+        std::cout << "time = " << time
+                  << "\ttime_last_measure = " << time_max
+                  << "\n";
       }
-      
-      std::cout << std::setprecision(8) << std::scientific ;
-      std::cout << "Mean fpt = " << mean_fpt/nr_measures << "\n";
-      std::cout << "Mean fpd = " << mean_fpd/nr_measures << "\n";
-      
-      if (initial_condition_type == 4)
+      for (auto const& part : ptrw.particles())
       {
-        std::cout << "Mean fpt * domain_side/length_discretization = "
-                  << mean_fpt/nr_measures
-                     *domain_side/length_discretization << "\n";
-        std::cout << "Mean fpd * domain_side/length_discretization = "
-                  << mean_fpd/nr_measures
-                     *domain_side/length_discretization << "\n";
+        useful::print(output_positions, getter_position(part.state_new()));
+        output_positions << "\n";
       }
+      output_positions.close();
       
       break;
     }

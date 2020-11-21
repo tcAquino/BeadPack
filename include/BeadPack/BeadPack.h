@@ -10,8 +10,9 @@
 #define BeadPack_h
 
 #include "general/Operations.h"
-#include "general/Shape.h"
+#include "Geometry/Shape.h"
 #include <nanoflann.hpp>
+#include <random>
 #include <vector>
 
 namespace beadpack
@@ -28,7 +29,7 @@ namespace beadpack
     const SearchParams kdtree_search_params;
     
   public:
-    using Bead = shape::Sphere<>;
+    using Bead = geometry::Sphere<>;
     static constexpr std::size_t dim{ dimension };
     
     BeadPack
@@ -75,6 +76,9 @@ namespace beadpack
     double radius(std::size_t idx) const
     { return bead_container[idx].radius; }
     
+    auto center(std::size_t idx) const
+    { return bead_container[idx].center; }
+    
     template <typename Position>
     std::pair<bool, std::size_t> inside(Position const& position) const
     {
@@ -117,7 +121,7 @@ namespace beadpack
       if (inside_bead.first)
       {
         auto radial_vector =
-          operation::minus(position, bead_container[inside_bead.second].center);
+          operation::minus(position, center(inside_bead.second));
         double distance_to_center = operation::abs(radial_vector);
         double radius_val = radius(inside_bead.second);
         if (distance_to_center != 0.)

@@ -6,9 +6,10 @@
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
 //
 
+#include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <random>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,7 +33,7 @@ int main(int argc, const char * argv[])
 {
   const std::size_t dim = 3;
   
-  if (argc != 17 && argc != 18 && argc != 19)
+  if (argc != 17 && argc != 18 && argc != 19 && argc != 20)
   {
     throw useful::bad_parameters();
   }
@@ -69,6 +70,7 @@ int main(int argc, const char * argv[])
   std::size_t nr_particles = strtoul(argv[arg++], NULL, 0);
   std::size_t run_nr = strtoul(argv[arg++], NULL, 0);
   std::string data_set = argv[arg++];
+  std::string filename_input_positions = argc > arg ? argv[arg++] : "";
   std::string input_dir_base = argc > arg ? argv[arg++] : "../input";
   std::string output_dir = argc > arg ? argv[arg++] : "../output";
   
@@ -184,6 +186,7 @@ int main(int argc, const char * argv[])
       velocity_field, mean_velocity,
       bead_pack, boundary_periodic,
       length_discretization,
+      filename_input_positions,
       state_maker),
     CTRW::Tag{} };
   std::cout << "\tDone!\n";

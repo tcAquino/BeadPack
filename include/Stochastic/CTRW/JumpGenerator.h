@@ -280,8 +280,11 @@ namespace ctrw
     }
     
     JumpGenerator_Diffusion(double diff, double dt, std::size_t dim)
-    : jump_generator(dim, { diff, dt })
-    {}
+    {
+      jump_generator.reserve(dim);
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        jump_generator.emplace_back(diff, dt);
+    }
     
     void time_step(double dt)
     {

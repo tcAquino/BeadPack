@@ -17,8 +17,8 @@
 #include <nanoflann.hpp>
 #include "general/MultiArray.h"
 #include "general/Operations.h"
-#include "general/Shape.h"
 #include "general/useful.h"
+#include "Geometry/Shape.h"
 
 namespace grid
 {
@@ -212,7 +212,7 @@ namespace grid
     template <typename Shape>
     void inside
     (Shape const& shape, std::vector<std::size_t>& indices,
-     useful::Selector_t<shape::Parallelepiped<>>) const
+     useful::Selector_t<geometry::Parallelepiped<>>) const
     {
       std::vector<Pair> near_center;
       double radius_sq = operation::abs_sq(shape.half_dimensions);
@@ -226,7 +226,7 @@ namespace grid
     template <typename Shape>
     void outside
     (Shape const& shape, std::vector<std::size_t>& indices,
-     useful::Selector_t<shape::Parallelepiped<>>) const
+     useful::Selector_t<geometry::Parallelepiped<>>) const
     {
       for (std::size_t idx = 0; idx < grid.size(); ++idx)
         if (!shape.inside(grid.cell_center(idx)))
@@ -236,7 +236,7 @@ namespace grid
     template <typename Shape>
     void inside
     (Shape const& shape, std::vector<std::size_t>& indices,
-     useful::Selector_t<shape::Sphere<>>) const
+     useful::Selector_t<geometry::Sphere<>>) const
     {
       std::vector<std::pair<size_t,double>> near_center;
       double radius_sq = shape.radius*shape.radius;
@@ -251,7 +251,7 @@ namespace grid
     template <typename Shape>
     void outside
     (Shape const& shape, std::vector<std::size_t>& indices,
-     useful::Selector_t<shape::Sphere<>>) const
+     useful::Selector_t<geometry::Sphere<>>) const
     {
       std::vector<std::pair<size_t,double>> near_center;
       double radius_sq = shape.radius*shape.radius;

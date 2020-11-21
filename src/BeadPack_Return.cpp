@@ -6,9 +6,10 @@
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
 //
 
+#include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <random>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -240,21 +241,20 @@ int main(int argc, const char * argv[])
         while (1)
         {
           auto state = ptrw.particles(0).state_new();
-          auto closest_bead = bead_pack.nearest_neighbor(state.position);
+          std::size_t closest_bead = bead_pack.nearest_neighbor(state.position).first;
           auto radial_vector =
-            operation::minus(state.position, bead_pack.bead(closest_bead.first).center);
+            operation::minus(state.position, bead_pack.center(closest_bead));
           double distance_to_center = operation::abs(radial_vector);
-          double radius_val = bead_pack.radius(closest_bead.second) + 2.*length_discretization;
+          double radius_val = bead_pack.radius(closest_bead) + 2.*length_discretization;
           operation::times_scalar_InPlace(radius_val/distance_to_center, radial_vector);
-          operation::plus(bead_pack.bead(closest_bead.first).center, radial_vector, state.position);
+          operation::plus(bead_pack.center(closest_bead), radial_vector, state.position);
           boundary_periodic(state);
-          if (bead_pack.near(state.position, 2.*length_discretization).first)
-            ptrw.step();
-          else
+          if (!bead_pack.near(state.position, 2.*length_discretization).first)
           {
             ctrw.set(0, state);
             break;
           }
+          ptrw.step();
         }
       }
       output_time << "\n";

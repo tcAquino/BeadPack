@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 #include "general/Constants.h"
-#include "general/Shape.h"
+#include "Geometry/Shape.h"
 #include "Grid/Grid.h"
 
 namespace boundary
@@ -426,9 +426,9 @@ namespace boundary
       auto position_old = state_old.position;
       while (inside_bead.first)
       {
-        shape::ReflectOffSphere_OutsideToInside(position_new, position_old,
-                                                bead_pack.bead(inside_bead.second),
-                                                position_new, position_old);
+        geometry::ReflectOffSphere_OutsideToInside(position_new, position_old,
+                                                   bead_pack.bead(inside_bead.second),
+                                                   position_new, position_old);
         
         inside_bead = bead_pack.inside(position_new);
       }
@@ -586,9 +586,9 @@ namespace boundary
         outofbounds_reflection = inside_bead.first;
         if (outofbounds_reflection)
         {
-          shape::ReflectOffSphere_OutsideToInside(state.position, position_old,
-                                                  bead_pack.bead(inside_bead.second),
-                                                  state.position, position_old);
+          geometry::ReflectOffSphere_OutsideToInside(state.position, position_old,
+                                                     bead_pack.bead(inside_bead.second),
+                                                     state.position, position_old);
         }
         
         counter_boundary_effects += outofbounds_periodic + outofbounds_reflection;

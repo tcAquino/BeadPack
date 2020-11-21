@@ -12,8 +12,9 @@
 #include <cmath>
 #include <vector>
 #include "general/Operations.h"
+#include "Geometry/Shape.h"
 
-namespace shape
+namespace geometry
 {
   template <typename Container_t = std::vector<double>>
   struct Parallelepiped
@@ -97,18 +98,18 @@ namespace shape
     {}
     
     Domain
-    (DomainShape box, std::vector<shape::Parallelepiped<>> parallelepipeds,
-     std::vector<shape::Sphere<>> sphere)
+    (DomainShape box, std::vector<geometry::Parallelepiped<>> parallelepipeds,
+     std::vector<geometry::Sphere<>> sphere)
     : box{ box }
     {}
     
     Shape box;
-    std::vector<shape::Parallelepiped<>> parallelepipeds;
-    std::vector<shape::Sphere<>> spheres;
+    std::vector<geometry::Parallelepiped<>> parallelepipeds;
+    std::vector<geometry::Sphere<>> spheres;
     
     std::vector<double> dimensions() const
     {
-      if constexpr (std::is_same<Shape,shape::Sphere<>>::value)
+      if constexpr (std::is_same<Shape,geometry::Sphere<>>::value)
         return std::vector<double>(box.dim(), 2.*box.radius);
       else
         return box.dimensions;
