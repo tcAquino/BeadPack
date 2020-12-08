@@ -34,7 +34,7 @@ int main(int argc, const char * argv[])
   {
     std::cout << "Advective-diffusive particle tracking in 3d beadpacks\n"
               << "with periodic boundary conditions on a cubic domain and\n"
-              << "reaction at constant rate at the bead interfaces.\n"
+              << "decay reaction at constant rate at the bead interfaces.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"
               << "domain_side : Length of domain side or periodic unit cell\n"

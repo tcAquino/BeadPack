@@ -33,8 +33,8 @@ int main(int argc, const char * argv[])
 {
   if (argc == 1)
   {
-    std::cout << "First passage times and distances to the interface for\n"
-              << "advective-diffusive particle tracking in 3d beadpacks\n"
+    std::cout << "First passage times and distances to the fluid-solid interface\n"
+              << "for advective-diffusive particle tracking in 3d beadpacks\n"
               << "with periodic boundary conditions on a cubic domain.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"

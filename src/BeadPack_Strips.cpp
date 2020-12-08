@@ -32,7 +32,7 @@ int main(int argc, const char * argv[])
 {
   if (argc == 1)
   {
-    std::cout << "Track particle strips using\n"
+    std::cout << "Track particle strips for\n"
               << "fully-advective particle tracking in 3d beadpacks\n"
               << "with periodic boundary conditions on a cubic domain.\n"
               << "----------------------------------------------------\n"

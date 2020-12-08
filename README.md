@@ -12,7 +12,6 @@ Required external libraries:
 - GMP : C arbitrary-precision arithmetic library (gmplib.org)
 - MPFR : C multiple-precision arithmetic with correct rounding library (mpfr.org)
 - nanoflann : C++ KDTree searching library (github.com/jlblancoc/nanoflann)
-- STL : C++ standard template library (provided with C++ compiler)
 
 ## Documentation
 

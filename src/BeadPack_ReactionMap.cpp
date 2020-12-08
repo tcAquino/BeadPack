@@ -32,9 +32,10 @@ int main(int argc, const char * argv[])
 {
   if (argc == 1)
   {
-    std::cout << "Advective-diffusive particle tracking in 3d beadpacks\n"
+    std::cout << "Fluid-phase mass consumed as a function of angle on bead surface\n"
+              << "for advective-diffusive particle tracking in 3d beadpacks\n"
               << "with periodic boundary conditions on a cubic domain and\n"
-              << "reaction at constant rate at the bead interfaces.\n"
+              << "decay reaction at constant rate at the bead interfaces.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"
               << "domain_side : Length of domain side or periodic unit cell\n"
