@@ -30,26 +30,34 @@ namespace ctrw
     using State = State_t;                   // Particle state
     using Particle = ctrw::Particle<State>;  // Particle type
     using Container = std::vector<Particle>; // Set of particles
-    struct Tag{};                            // To select constructor
-                                             // for tagging particles
+    struct Tag{};                            // To select constructors
+                                             // that tag particles
 
+    // Construct empty
     CTRW()
     {}
 
+    // Construct given particles
     CTRW(Container particles)
     : particle_container{ particles }
     {}
     
+    // Construct given particles and tag them in ascending order
+    // State must define: tag
     CTRW(Container particles, Tag)
     : CTRW{ particles }
     { retag(); }
     
+    // Construct given particles and reserve space for given maximum number
     CTRW(Container particles, std::size_t max_nr_particles)
     {
       particle_container.reserve(max_nr_particles);
       particle_container = particles;
     }
     
+    // Construct given particles and reserve space for given maximum number
+    // Tag them in ascending order
+    // State must define: tag
     CTRW(Container particles, std::size_t max_nr_particles, Tag)
     : CTRW(particles, max_nr_particles)
     { retag(); }
@@ -167,38 +175,43 @@ namespace ctrw
           part.Transition(transitions_particle);
     }
 
+    // Get reference to particle container
     Container const& particles() const
     { return particle_container; }
 
+    // Get reference to particle
     Particle const& particles(std::size_t part) const
     { return particle_container[part]; }
 
+    // Get number of particles
     std::size_t size() const
     { return particle_container.size(); }
 
+    // Iterator to begining of particle container
     auto cbegin() const
     { return particle_container.cbegin(); }
 
+    // Iterator to end of particle container
     auto cend() const
     { return particle_container.cend(); }
     
+    // Iterator to begining of particle container
     auto begin() const
     { return particle_container.cbegin(); }
 
+    // Iterator to end of particle container
     auto end() const
     { return particle_container.cend(); }
-
-
+    
   private:
-    Container particle_container;
+    Container particle_container;  // Current particles
 
-    // Remove by position in container if criterium is met
+    // Remove particle by position in container if criterium is met
     template <typename Criterium>
     void remove(std::size_t part, Criterium criterium)
     { if (criterium(particle_container[part])) remove(part); }
     
-    // Copy the last element to the
-    // position to remove and drop the last element
+    // Remove particle by position in container
     void remove(std::size_t part)
     { useful::swap_erase(particle_container, part); }
   };

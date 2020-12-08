@@ -1,6 +1,5 @@
 //
-//  main.cpp
-//  BeadPack
+//  BeadPack_Strips.cpp
 //
 //  Created by Tomás Aquino on 12/05/2020.
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
@@ -31,12 +30,41 @@
 
 int main(int argc, const char * argv[])
 {
-  const std::size_t dim = 3;
+  if (argc == 1)
+  {
+    std::cout << "Track particle strips using\n"
+              << "fully-advective particle tracking in 3d beadpacks\n"
+              << "with periodic boundary conditions on a cubic domain.\n"
+              << "----------------------------------------------------\n"
+              << "Parameters (default value in []):\n"
+              << "domain_side : Length of domain side or periodic unit cell\n"
+              << "nr_strips : Number of strips to track\n"
+              << "max_particles_strip : Maximum number of particles per strip\n"
+              << "initial_strip_segment_length_factor : Initial strip length in units of domain sides\n"
+              << "time_step_accuracy_adv : Time step size in units of advection time\n"
+              << "time_min_advection_times : Minimum output time in units of advection time\n"
+              << "time_max_advection_times : Maximum output time in units of advection time\n"
+              << "nr_measures : Number of measurements\n"
+              << "measure_spacing : 0 - Logarithmic spacing between measurements\n"
+              << "                : 1 - Linear spacing between measurements\n"
+              << "                : 2 - Output only at last step\n"
+              << "nr_particles : Number of particles to track\n"
+              << "run_nr : Nonnegative integer identifier for output files\n"
+              << "data_set : Path to input data folder relative to input_dir_base\n"
+              << "           (and model name identifier for output files)\n"
+              << "filename_input_positions : Filename to read positions from\n"
+              << "                           for initial_condition_type = 8 []\n"
+              << "input_dir_base : Path to look for input data [../input]\n"
+              << "output_dir : Path folder to output to [../output]\n";
+    return 0;
+  }
   
   if (argc != 12 && argc != 13 && argc != 14)
   {
     throw std::runtime_error{ "Inappropriate parameters." };
   }
+  
+  const std::size_t dim = 3;
   
   using BeadPack = beadpack::BeadPack<dim>;
   using Bead = BeadPack::Bead;
@@ -138,15 +166,12 @@ int main(int argc, const char * argv[])
   double advection_time = domain_side/mean_velocity_magnitude;
   double time_step = time_step_accuracy_adv*advection_time;
   std::size_t max_particles = max_particles_strip*nr_strips;
-//  std::size_t particles_strip = max_particles_strip;
-//  double max_distance_strip = 0.;
   std::size_t particles_strip = 2;
-//  double max_distance_strip = 2.*time_step*mean_velocity_magnitude;
   double max_distance_strip = 1e-2*domain_side;
   Boundary_Periodic boundary_periodic{ boundaries };
   Boundary boundary{ bead_pack, boundary_periodic };
   auto adjust = [&bead_pack, &boundary_periodic](State& state)
-  { bead_pack.place_at_closest_surface(state, boundary_periodic); };
+  { bead_pack.place_at_closest_surface_if_inside(state, boundary_periodic); };
   auto state_maker = []()
   { return State{ std::vector<double>(dim, 0.), std::vector<int>(dim, 0) }; };
   CTRW ctrw{};
@@ -227,7 +252,7 @@ int main(int argc, const char * argv[])
   std::cout << "\tmax time [adv times] = " << time_max/advection_time << "\n";
   std::cout << "\tnr_particles = " << ptrw.size() << "\n";
   
-  if (measure_spacing ==  2)
+  if (measure_spacing == 2)
   {
     measurer_positions(ptrw, Get_position{ domain_dimensions }, ptrw.time());
     measurer_strips(strips, ptrw.time());

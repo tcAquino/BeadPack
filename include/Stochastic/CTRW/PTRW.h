@@ -13,52 +13,71 @@
 
 namespace ctrw
 {
-  // Interface for PTRW using CTRW object framework
+  // Interface for fixed-time-step steps PTRW using CTRW object framework
 	template <typename CTRW, typename Transitions, typename Time_t = double>
 	class PTRW
 	{
 	public:
-		using Particle = typename CTRW::Particle;
-		using Container = typename CTRW::Container;
-    using Time = Time_t;
+		using Particle = typename CTRW::Particle;    // Type of particle
+    using State = typename CTRW::State;          // Type of particle state
+		using Container = typename CTRW::Container;  // Type of particle container
+    using Time = Time_t;                         // Type of time variable
 
+    // Construct with given CTRW, transition handler, and initial time
+    // time step obtained from transitions
     PTRW(CTRW& ctrw, Transitions& transitions, Time time = 0)
     : ctrw{ ctrw }
     , transitions{ transitions }
     , current_time{ time }
-		{
-      set_step(transitions.timestep());
-    }
+		{ time_step(transitions.timestep()); }
     
-    PTRW(CTRW& ctrw, Transitions& transitions, Time time_step, Time time)
+    // Construct with given CTRW, transition handler,
+    // time step, and initial time
+    PTRW(CTRW& ctrw, Transitions& transitions, Time dt, Time time)
     : ctrw{ ctrw }
     , transitions{ transitions }
     , current_time{ time }
-    , time_step{ time_step }
+    , dt{ dt }
     {}
 
-		void inject(Particle particle)
-		{ ctrw.inject(particle); }
+    // Add copy of particle
+		void push_back(Particle particle)
+		{ ctrw.push_back(particle); }
 
+    // Remove particles satisfying a criterium
 		template <typename Criterium>
 		void remove(Criterium criterium)
 		{ ctrw.remove(criterium); }
 
+    // Remove particles at given positions in container
 		template <typename IntegerType>
 		void remove(std::list<IntegerType>& list)
 		{ ctrw.remove(list); }
+    
+    // Remove all particles
+    void clear()
+    { ctrw.clear(); }
 
-		void step(Time time_step)
+    // Set time step
+		void step(Time dt)
 		{
-			transitions.timestep(time_step);
+			transitions.timestep(dt);
 			ctrw.step(transitions);
-      current_time += time_step;
+      current_time += dt;
 		}
 
+    // Evolve all particles one time step
     void step()
     {
       ctrw.step(transitions);
-      current_time += time_step;
+      current_time += dt;
+    }
+    
+    // Set time step
+    void time_step(Time dt)
+    {
+      this->dt = dt;
+      transitions.time_step(dt);
     }
 
     // Step each particle directly up to time_max
@@ -77,42 +96,50 @@ namespace ctrw
       current_time = time_max;
     }
 
-    void set_step(Time time_step)
-    {
-      this->time_step = time_step;
-      transitions.timestep(time_step);
-    }
-
+    // Get current time
     double time() const
     { return current_time; }
 
+    // Get reference to particle container
 		auto const& particles() const
 		{ return ctrw.particles(); }
 
+    // Get reference to particle
 		auto const& particles(std::size_t part) const
 		{ return ctrw.particles(part); }
     
+    // Iterator to beginning of particle container
     auto cbegin() const
     { return ctrw.cbegin(); }
 
+    // Iterator to end of particle container
     auto cend() const
     { return ctrw.cend(); }
     
+    // Iterator to beginning of particle container
     auto begin() const
     { return ctrw.begin(); }
 
+    // Iterator to end of particle container
     auto end() const
     { return ctrw.end(); }
-
-		std::size_t size() const
-		{ return ctrw.size(); }
+    
+    // Get time step
+    void time_step() const
+    {
+      return dt;
+    }
+    
+    // Get number of particles
+    std::size_t size() const
+    { return ctrw.size(); }
 
 	private:
-		CTRW& ctrw;
-		Transitions& transitions;
+		CTRW& ctrw;                // Wrapped CTRW object
+		Transitions& transitions;  // CTRW transition handler with fixed time step
 
-    Time current_time;
-    Time time_step;
+    Time current_time;         // System time
+    Time dt;                   // Time step
   };
 }
 

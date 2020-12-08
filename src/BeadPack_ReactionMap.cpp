@@ -1,6 +1,5 @@
 //
-//  main.cpp
-//  BeadPack_ReactionMap
+//  BeadPack_ReactionMap.cpp
 //
 //  Created by Tomás Aquino on 17/11/2020.
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
@@ -19,94 +18,64 @@
 #include "Field/VectorField_Interpolated.h"
 #include "general/Operations.h"
 #include "general/Ranges.h"
-#include "Geometry/Coordinates.h"
 #include "Stochastic/CTRW/Boundary.h"
 #include "Stochastic/CTRW/CTRW.h"
 #include "Stochastic/CTRW/JumpGenerator.h"
 #include "Stochastic/CTRW/Measurer.h"
 #include "Stochastic/CTRW/PTRW.h"
+#include "Stochastic/CTRW/Reaction.h"
 #include "Stochastic/CTRW/State.h"
 #include "Stochastic/CTRW/StateGetter.h"
 #include "Stochastic/CTRW/Transitions_State.h"
 
-template <typename BeadPack>
-class Reaction_Decay_Condition_Map_Beadpack_3d
-{
-public:
-  Reaction_Decay_Condition_Map_Beadpack_3d
-  (double reaction_rate, double length_discretization,
-   std::size_t nr_bins, BeadPack const& bead_pack)
-  : reaction_rate{ reaction_rate }
-  , length_discretization{ length_discretization }
-  , nr_bins_phi{ nr_bins }
-  , nr_bins_theta{ std::size_t(nr_bins/2) }
-  , bead_pack{ bead_pack }
-  {
-    map_phi_theta.assign(nr_bins,
-      std::vector<double>(std::size_t(nr_bins/2), 0.));
-  }
-  
-  template <typename State>
-  void operator()(State& state, double exposure_time)
-  {
-    auto near = bead_pack.near(state.position, length_discretization);
-    if (near.first)
-    {
-      double old_mass = state.mass;
-      state.mass *= std::exp(-reaction_rate*exposure_time);
-      
-      std::size_t bead = bead_pack.nearest_neighbor(state.position).first;
-      auto spherical = geometry::cartesian2spherical(
-        operation::minus(state.position, bead_pack.center(bead)));
-      std::size_t bin_phi = (spherical[1]+constants::pi)/(2.*constants::pi)*nr_bins_phi;
-      if (bin_phi == nr_bins_phi)
-        --bin_phi;
-      std::size_t bin_theta = spherical[2]/constants::pi*nr_bins_theta;
-      if (bin_theta == nr_bins_theta)
-        --bin_theta;
-      map_phi_theta[bin_phi][bin_theta] += old_mass - state.mass;
-    }
-  }
-  
-  void print_map
-  (std::string const& filename,
-   int precision = 8, std::string delimiter = "\t")
-  {
-    std::ofstream output{ filename };
-    if (!output.is_open())
-      throw useful::open_write_error(filename);
-    output << std::scientific << std::setprecision(precision);
-    
-    for (std::size_t ii = 0; ii < nr_bins_phi; ++ii)
-    {
-      double phi = 2.*constants::pi*(ii+0.5)/nr_bins_phi - constants::pi;
-      for (std::size_t jj = 0; jj < nr_bins_theta; ++jj)
-      {
-        double theta = constants::pi*(jj+0.5)/nr_bins_theta;
-        output << phi << delimiter
-               << theta << delimiter
-               << map_phi_theta[ii][jj] << "\n";
-      }
-    }
-  }
-  
-private:
-  const double reaction_rate;
-  const double length_discretization;
-  std::size_t nr_bins_phi;
-  std::size_t nr_bins_theta;
-  BeadPack const& bead_pack;
-  std::vector<std::vector<double>> map_phi_theta;
-};
-
 int main(int argc, const char * argv[])
 {
-  const std::size_t dim = 3;
+  if (argc == 1)
+  {
+    std::cout << "Advective-diffusive particle tracking in 3d beadpacks\n"
+              << "with periodic boundary conditions on a cubic domain and\n"
+              << "reaction at constant rate at the bead interfaces.\n"
+              << "----------------------------------------------------\n"
+              << "Parameters (default value in []):\n"
+              << "domain_side : Length of domain side or periodic unit cell\n"
+              << "damkohler : Damkohler number in terms of domain side, reaction rate at interface,\n"
+              << "            and diffusion time\n"
+              << "peclet : Peclet number in terms of domain side, average velocity,\n"
+              << "         and diffusion coefficient\n"
+              << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
+              << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
+              << "time_max_diffusion_times : Maximum output time in units of diffusion time\n"
+              << "initial_condition_type : 0 - Uniformly random in the void space a plane\n"
+              << "                       : 1 - Flux-weighted in the void space on a plane\n"
+              << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
+              << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"
+              << "                       : 4 - Uniformly randomly over twice the discretization distance\n"
+              << "                             from the interface in the periodic domain\n"
+              << "                       : 5 - Uniformly randomly over twice the discretization distance\n"
+              << "                             from the interface of all beads\n"
+              << "                       : 6 - Uniformly randomly over the interface in the periodic domain\n"
+              << "                       : 7 - Uniformly randomly over the interface of all beads\n"
+              << "                       : 8 - Load positions from file\n"
+              << "nr_bins_angle : Number of bins to equally discretize the range [0,2pi]"
+              << "initial_condition_size_domains : Size of initial condition box or plane in domain sides\n"
+              << "initial_mass : Total initial mass\n"
+              << "nr_particles : Number of particles to track\n"
+              << "run_nr : Nonnegative integer identifier for output files\n"
+              << "data_set : Path to input data folder relative to input_dir_base\n"
+              << "           (and model name identifier for output files)\n"
+              << "filename_input_positions : Filename to read positions from\n"
+              << "                           for initial_condition_type = 8 []\n"
+              << "input_dir_base : Path to look for input data [../input]\n"
+              << "output_dir : Path folder to output to [../output]\n";
+    return 0;
+  }
 
-  if (argc != 15 && argc != 16 && argc != 17 && argc != 18)
+  if (argc != 14 && argc != 15 && argc != 16 && argc != 17)
   {
     throw useful::bad_parameters();
   }
+  
+  const std::size_t dim = 3;
 
   using BeadPack = beadpack::BeadPack<dim>;
   using Bead = BeadPack::Bead;
@@ -125,12 +94,11 @@ int main(int argc, const char * argv[])
 
   std::size_t arg = 1;
   double domain_side = atof(argv[arg++]);
-  double Peclet = atof(argv[arg++]);
-  double Damkohler = atof(argv[arg++]);
+  double damkohler = atof(argv[arg++]);
+  double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
   double time_max_diffusion_times = atof(argv[arg++]);
-  int measure_type = atoi(argv[arg++]);
   int initial_condition_type = atoi(argv[arg++]);
   double initial_condition_size_domains = atof(argv[arg++]);
   double initial_mass = atof(argv[arg++]);
@@ -141,9 +109,6 @@ int main(int argc, const char * argv[])
   std::string filename_input_positions = argc > arg ? argv[arg++] : "";
   std::string input_dir_base = argc > arg ? argv[arg++] : "../input";
   std::string output_dir = argc > arg ? argv[arg++] : "../output";
-
-  std::size_t nr_measures = 50;
-  int measure_spacing = 0;
 
   std::string input_dir = input_dir_base + "/" + data_set;
 
@@ -217,16 +182,14 @@ int main(int argc, const char * argv[])
 
   std::cout << "Setting up particles...\n";
   double advection_time = domain_side/mean_velocity_magnitude;
-  double diff = domain_side*mean_velocity_magnitude/Peclet;
+  double diff = domain_side*mean_velocity_magnitude/peclet;
   double diffusion_time = domain_side*domain_side/(2.*diff);
   double time_step = std::min(time_step_accuracy_adv*advection_time,
     time_step_accuracy_diff*diffusion_time);
   double mass_per_particle = initial_mass/nr_particles;
   double length_discretization = 10.*std::sqrt(2.*diff*time_step);
 
-  double time_min_diffusion_times = time_max_diffusion_times/nr_measures;
-
-  double reaction_rate = Damkohler/diffusion_time*domain_side/length_discretization;
+  double reaction_rate = damkohler/diffusion_time*domain_side/length_discretization;
 
   Boundary_Periodic boundary_periodic{ boundaries };
   Boundary boundary{ bead_pack, boundary_periodic };
@@ -256,40 +219,24 @@ int main(int argc, const char * argv[])
       domain_midpoint, initial_box_centered,
       velocity_field, mean_velocity,
       bead_pack, boundary_periodic,
-      length_discretization,
+      2.*length_discretization,
       filename_input_positions,
       state_maker),
     CTRW::Tag{} };
   std::cout << "\tDone!\n";
 
   std::cout << "Setting up output...\n";
-  double time_min = time_min_diffusion_times*diffusion_time;
+  std::size_t check_progress_times = 50;
   double time_max = time_max_diffusion_times*diffusion_time;
-  double dist_min = mean_velocity_magnitude*time_min;
-  double dist_max = mean_velocity_magnitude*time_max;
-  std::vector<double> measure_times, measure_distances;
-  switch (measure_spacing)
-  {
-    case 0:
-      measure_times = range::logspace(time_min, time_max, nr_measures);
-      measure_distances = range::logspace(dist_min, dist_max, nr_measures);
-      break;
-    case 1:
-      measure_times = range::linspace(time_min, time_max, nr_measures);
-      measure_distances = range::linspace(dist_min, dist_max, nr_measures);
-      break;
-    case 2:
-      break;
-    default:
-      throw std::runtime_error{ "Undefined measure spacing." };
-  }
+  double time_min = time_max/check_progress_times;
+  std::vector<double> measure_times = range::logspace(time_min, time_max, check_progress_times);
 
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
   stream << domain_side << "_"
          << initial_condition_size_domains << "_"
-         << Peclet << "_"
-         << Damkohler << "_"
+         << peclet << "_"
+         << damkohler << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
          << time_max_diffusion_times << "_"
@@ -307,7 +254,7 @@ int main(int argc, const char * argv[])
   std::cout << "\tDone!\n";
 
   std::cout << "Setting up dynamics...\n";
-  auto reaction = Reaction_Decay_Condition_Map_Beadpack_3d{
+  auto reaction = ctrw::Reaction_Decay_Condition_Map_Beadpack_3d{
     reaction_rate,
     length_discretization,
     nr_bins_angle,
@@ -344,23 +291,14 @@ int main(int argc, const char * argv[])
   std::cout << "\tDiscretization length = " << length_discretization << "\n";
   std::cout << "\tNr of particles = " << ptrw.size() << "\n";
 
-  switch (measure_type)
+  for (auto const& time : measure_times)
   {
-    case 0:
-    {
-      for (auto const& time : measure_times)
-      {
-        ptrw.evolve(time);
-        std::cout << "time = " << time
-                  << "\ttime_last_measure = " << time_max
-                  << "\n";
-      }
-      reaction.print_map(filename_output_map);
-      break;
-    }
-    default:
-      throw std::invalid_argument{ "Undefined measure type" };
+    ptrw.evolve(time);
+    std::cout << "time = " << time
+              << "\ttime_last_measure = " << time_max
+              << "\n";
   }
+  reaction.print_map(filename_output_map);
 
   std::cout << "\tDone!\n";
 

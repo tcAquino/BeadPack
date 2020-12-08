@@ -27,6 +27,28 @@
 
 namespace stochastic
 {
+  
+  // Wrapper for random number generation with own rng
+  template <typename Distribution_t, typename Engine_t = std::mt19937>
+  struct RNG
+  {
+    using param_type = typename Distribution_t::param_type;
+    using result_type = typename Distribution_t::result_type;
+
+    template <typename param_t>
+    RNG(param_t const& params)
+    : dist{ param_type(params) }
+    {}
+
+    result_type operator() ()
+    { return dist(rng); }
+
+    Distribution_t dist;
+
+  private:
+    Engine_t rng{ std::random_device{}() };
+  };
+  
   // Wrapper for random number generation with shared rng
   template <typename Distribution_t, typename Engine_t = std::mt19937>
   struct RNG_shared_engine
@@ -47,27 +69,6 @@ namespace stochastic
 
   private:
     Engine_t& rng;
-  };
-
-  // Wrapper for random number generation with own rng
-  template <typename Distribution_t, typename Engine_t = std::mt19937>
-  struct RNG
-  {
-    using param_type = typename Distribution_t::param_type;
-    using result_type = typename Distribution_t::result_type;
-
-    template <typename param_t>
-    RNG(param_t const& params)
-    : dist{ param_type(params) }
-    {}
-
-    result_type operator() ()
-    { return dist(rng); }
-
-    Distribution_t dist;
-
-  private:
-    Engine_t rng{ std::random_device{}() };
   };
 
   // Skewed Levy stable distribution
@@ -194,6 +195,8 @@ namespace stochastic
     double ratio{ 0.5*var/(mean*mean) };
   };
   
+  // Unit vector in arbitrary dimension with
+  // uniformly random orientation
   template <typename Value_type = std::vector<double>>
   class isotropic_unit_vector_distribution
   {

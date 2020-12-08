@@ -1,6 +1,5 @@
 //
-//  main.cpp
-//  BeadPack_Return
+//  BeadPack_Return.cpp
 //
 //  Created by Tomás Aquino on 13/11/2020.
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
@@ -31,12 +30,35 @@
 
 int main(int argc, const char * argv[])
 {
-  const std::size_t dim = 3;
+  if (argc == 1)
+  {
+    std::cout << "Return times and distances to the interface for\n"
+              << "advective-diffusive particle tracking in 3d beadpacks\n"
+              << "with periodic boundary conditions on a cubic domain.\n"
+              << "----------------------------------------------------\n"
+              << "Parameters (default value in []):\n"
+              << "domain_side : Length of domain side or periodic unit cell\n"
+              << "peclet : Peclet number in terms of domain side, average velocity,\n"
+              << "         and diffusion coefficient\n"
+              << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
+              << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
+              << "nr_measures : Number of measurements\n"
+              << "run_nr : Nonnegative integer identifier for output files\n"
+              << "data_set : Path to input data folder relative to input_dir_base\n"
+              << "           (and model name identifier for output files)\n"
+              << "filename_input_positions : Filename to read positions from\n"
+              << "                           for initial_condition_type = 8 []\n"
+              << "input_dir_base : Path to look for input data [../input]\n"
+              << "output_dir : Path folder to output to [../output]\n";
+    return 0;
+  }
   
-  if (argc != 9 && argc != 10 && argc != 11)
+  if (argc != 8 && argc != 9 && argc != 10)
   {
     throw useful::bad_parameters();
   }
+  
+  const std::size_t dim = 3;
   
   using BeadPack = beadpack::BeadPack<dim>;
   using Bead = BeadPack::Bead;
@@ -55,10 +77,9 @@ int main(int argc, const char * argv[])
   
   std::size_t arg = 1;
   double domain_side = atof(argv[arg++]);
-  double Peclet = atof(argv[arg++]);
+  double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
-  int measure_type = atoi(argv[arg++]);
   std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
   std::size_t run_nr = strtoul(argv[arg++], NULL, 0);
   std::string data_set = argv[arg++];
@@ -76,6 +97,7 @@ int main(int argc, const char * argv[])
   
   std::cout << "Importing beads...\n";
   std::string bead_filename = input_dir + "spheres.dat";
+  
   BeadPack bead_pack{ beadpack::get_beads<Bead>(dim, bead_filename, 1, domain_side) };
   std::cout << "\tDone!\n";
   
@@ -136,7 +158,7 @@ int main(int argc, const char * argv[])
   
   std::cout << "Setting up particles...\n";
   double advection_time = domain_side/mean_velocity_magnitude;
-  double diff = domain_side*mean_velocity_magnitude/Peclet;
+  double diff = domain_side*mean_velocity_magnitude/peclet;
   double diffusion_time = domain_side*domain_side/(2.*diff);
   double time_step = std::min(time_step_accuracy_adv*advection_time,
     time_step_accuracy_diff*diffusion_time);
@@ -152,7 +174,7 @@ int main(int argc, const char * argv[])
   { return State{ std::vector<double>(dim, 0.), std::vector<int>(dim, 0) }; };
   
   CTRW ctrw{ beadpack::make_particles_random_near_wall_uniform_unit_cell<CTRW::Particle>
-    (1, bead_pack, boundary_periodic, length_discretization, state_maker), CTRW::Tag{} };
+    (1, bead_pack, boundary_periodic, 2.*length_discretization, state_maker), CTRW::Tag{} };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up output...\n";
@@ -160,7 +182,7 @@ int main(int argc, const char * argv[])
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
   stream << domain_side << "_"
-         << Peclet << "_"
+         << peclet << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
          << nr_measures << "_"
@@ -207,67 +229,61 @@ int main(int argc, const char * argv[])
   std::cout << "\tDiscretization length = " << length_discretization << "\n";
   std::cout << "\tNr of measures = " << nr_measures << "\n";
   
-  switch (measure_type)
+  std::string filename_time{ filename_output_time };
+  std::ofstream output_time{ filename_time };
+  if (!output_time.is_open())
+    throw useful::open_write_error(filename_time);
+  output_time << std::setprecision(8)
+              << std::scientific;
+  
+  std::string filename_space{ filename_output_space };
+  std::ofstream output_space{ filename_space };
+  if (!output_space.is_open())
+    throw useful::open_write_error(filename_space);
+  output_space << std::setprecision(8)
+               << std::scientific;
+  
+  std::string delimiter = "";
+  for (std::size_t pp = 0; pp < nr_measures; ++pp)
   {
-    case 0:
+    double start_time = ptrw.time();
+    double start_position = getter_position_longitudinal(ptrw.particles(0).state_new());
+    std::cout << "Measure " << pp+1 << " of " << nr_measures << "\n";
+    while (!near_wall(ptrw.particles(0).state_new()))
+      ptrw.step();
+    output_time << delimiter << ptrw.time()-start_time;
+    output_space << delimiter
+                 << getter_position_longitudinal(ptrw.particles(0).state_new()) - start_position;
+    delimiter = "\t";
+    
+    while (1)
     {
-      std::string filename_time{ filename_output_time };
-      std::ofstream output_time{ filename_time };
-      if (!output_time.is_open())
-        throw useful::open_write_error(filename_time);
-      output_time << std::setprecision(8)
-                  << std::scientific;
+      // Place the particle at distance 2*length_discretization from nearest interface
+      auto state = ptrw.particles(0).state_new();
+      std::size_t bead = bead_pack.place_at_closest_surface(state, boundary_periodic);
+      double radius = bead_pack.radius(bead);
+      auto radial_vector = operation::minus(state.position, bead_pack.center(bead));
+      double radius_val = radius + 2.*length_discretization;
+      operation::times_scalar_InPlace(radius_val/radius, radial_vector);
+      operation::plus(bead_pack.center(bead), radial_vector, state.position);
+      boundary_periodic(state);
       
-      std::string filename_space{ filename_output_space };
-      std::ofstream output_space{ filename_space };
-      if (!output_space.is_open())
-        throw useful::open_write_error(filename_space);
-      output_space << std::setprecision(8)
-                   << std::scientific;
-      
-      std::string delimiter = "";
-      for (std::size_t pp = 0; pp < nr_measures; ++pp)
+      // If not closer to another bead, accept
+      if (!bead_pack.near(state.position, 2.*length_discretization).first)
       {
-        double start_time = ptrw.time();
-        double start_position = getter_position_longitudinal(ptrw.particles(0).state_new());
-        std::cout << "Measure " << pp+1 << " of " << nr_measures << "\n";
-        while (!near_wall(ptrw.particles(0).state_new()))
-          ptrw.step();
-        output_time << delimiter << ptrw.time()-start_time;
-        output_space << delimiter
-                     << getter_position_longitudinal(ptrw.particles(0).state_new()) - start_position;
-        delimiter = "\t";
-        
-        while (1)
-        {
-          auto state = ptrw.particles(0).state_new();
-          std::size_t closest_bead = bead_pack.nearest_neighbor(state.position).first;
-          auto radial_vector =
-            operation::minus(state.position, bead_pack.center(closest_bead));
-          double distance_to_center = operation::abs(radial_vector);
-          double radius_val = bead_pack.radius(closest_bead) + 2.*length_discretization;
-          operation::times_scalar_InPlace(radius_val/distance_to_center, radial_vector);
-          operation::plus(bead_pack.center(closest_bead), radial_vector, state.position);
-          boundary_periodic(state);
-          if (!bead_pack.near(state.position, 2.*length_discretization).first)
-          {
-            ctrw.set(0, state);
-            break;
-          }
-          ptrw.step();
-        }
+        ctrw.set(0, state);
+        break;
       }
-      output_time << "\n";
-      output_space << "n";
       
-      output_time.close();
-      output_space.close();
-
-      break;
+      // Othwerise, adjust with a PTRW step and try again
+      ptrw.step();
     }
-    default:
-      throw std::invalid_argument{ "Undefined measure type" };
   }
+  output_time << "\n";
+  output_space << "n";
+  
+  output_time.close();
+  output_space.close();
   
   std::cout << "\tDone!\n";
   

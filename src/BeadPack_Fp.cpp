@@ -1,6 +1,5 @@
 //
-//  main.cpp
-//  Beadpack_fpt
+//  Beadpack_Fp.cpp
 //
 //  Created by Tomás Aquino on 10/11/2020.
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
@@ -32,12 +31,48 @@
 
 int main(int argc, const char * argv[])
 {
-  const std::size_t dim = 3;
+  if (argc == 1)
+  {
+    std::cout << "First passage times and distances to the interface for\n"
+              << "advective-diffusive particle tracking in 3d beadpacks\n"
+              << "with periodic boundary conditions on a cubic domain.\n"
+              << "----------------------------------------------------\n"
+              << "Parameters (default value in []):\n"
+              << "domain_side : Length of domain side or periodic unit cell\n"
+              << "peclet : Peclet number in terms of domain side, average velocity,\n"
+              << "         and diffusion coefficient\n"
+              << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
+              << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
+              << "measure_type : 0 - First passage times and distances (output to file)\n"
+              << "               1 - Mean first passage time and distance (output to console)\n"
+              << "initial_condition_type : 0 - Uniformly random in the void space a plane\n"
+              << "                       : 1 - Flux-weighted in the void space on a plane\n"
+              << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
+              << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"
+              << "                       : 4 - Uniformly randomly over twice the discretization distance\n"
+              << "                             from the interface in the periodic domain\n"
+              << "                       : 5 - Uniformly randomly over twice the discretization distance\n"
+              << "                             from the interface of all beads\n"
+              << "                       : 6 - Uniformly randomly over the interface in the periodic domain\n"
+              << "                       : 7 - Uniformly randomly over the interface of all beads\n"
+              << "                       : 8 - Load positions from file\n"
+              << "initial_condition_size_domains : Size of initial condition box or plane in domain sides\n"
+              << "nr_measures : Number of measurements\n"
+              << "run_nr : Nonnegative integer identifier for output files\n"
+              << "data_set : Path to input data folder relative to input_dir_base\n"
+              << "           (and model name identifier for output files)\n"
+              << "filename_input_positions : Filename to read positions from for initial_condition_type = 8 []\n"
+              << "input_dir_base : Path to look for input data [../input]\n"
+              << "output_dir : Path folder to output to [../output]\n";
+    return 0;
+  }
   
   if (argc != 11 && argc != 12 && argc != 13 && argc != 14)
   {
     throw useful::bad_parameters();
   }
+  
+  const std::size_t dim = 3;
   
   using BeadPack = beadpack::BeadPack<dim>;
   using Bead = BeadPack::Bead;
@@ -56,7 +91,7 @@ int main(int argc, const char * argv[])
   
   std::size_t arg = 1;
   double domain_side = atof(argv[arg++]);
-  double Peclet = atof(argv[arg++]);
+  double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
   int measure_type = atoi(argv[arg++]);
@@ -140,7 +175,7 @@ int main(int argc, const char * argv[])
   
   std::cout << "Setting up particles...\n";
   double advection_time = domain_side/mean_velocity_magnitude;
-  double diff = domain_side*mean_velocity_magnitude/Peclet;
+  double diff = domain_side*mean_velocity_magnitude/peclet;
   double diffusion_time = domain_side*domain_side/(2.*diff);
   double time_step = std::min(time_step_accuracy_adv*advection_time,
     time_step_accuracy_diff*diffusion_time);
@@ -175,7 +210,7 @@ int main(int argc, const char * argv[])
       domain_midpoint, initial_box_centered,
       velocity_field, mean_velocity,
       bead_pack, boundary_periodic,
-      length_discretization,
+      2.*length_discretization,
       filename_input_positions,
       state_maker);
   std::cout << "\tDone!\n";
@@ -186,7 +221,7 @@ int main(int argc, const char * argv[])
   stream << std::scientific << std::setprecision(2);
   stream << domain_side << "_"
          << initial_condition_size_domains << "_"
-         << Peclet << "_"
+         << peclet << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
          << nr_measures << "_"
@@ -288,20 +323,20 @@ int main(int argc, const char * argv[])
         mean_fpt += ptrw.time();
         mean_fpd += getter_position_longitudinal(ptrw.particles(0).state_new());
         ++pp;
-      }
-      
-      std::cout << std::setprecision(8) << std::scientific ;
-      std::cout << "Mean fpt = " << mean_fpt/nr_measures << "\n";
-      std::cout << "Mean fpd = " << mean_fpd/nr_measures << "\n";
-      
-      if (initial_condition_type == 4)
-      {
-        std::cout << "Mean fpt * domain_side/length_discretization = "
-                  << mean_fpt/nr_measures
-                     *domain_side/length_discretization << "\n";
-        std::cout << "Mean fpd * domain_side/length_discretization = "
-                  << mean_fpd/nr_measures
-                     *domain_side/length_discretization << "\n";
+        
+        std::cout << std::setprecision(8) << std::scientific ;
+        std::cout << "Mean fpt = " << mean_fpt/nr_measures << "\n";
+        std::cout << "Mean fpd = " << mean_fpd/nr_measures << "\n";
+        
+        if (initial_condition_type == 4)
+        {
+          std::cout << "Mean fpt * domain_side/length_discretization = "
+                    << mean_fpt/nr_measures
+                       *domain_side/length_discretization << "\n";
+          std::cout << "Mean fpd * domain_side/length_discretization = "
+                    << mean_fpd/nr_measures
+                       *domain_side/length_discretization << "\n";
+        }
       }
       
       break;

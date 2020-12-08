@@ -1,6 +1,5 @@
 //
-//  main.cpp
-//  BeadPack_Reactive
+//  BeadPack_Reactive.cpp
 //
 //  Created by Tomás Aquino on 27/05/2020.
 //  Copyright © 2020 Tomás Aquino. All rights reserved.
@@ -31,12 +30,63 @@
 
 int main(int argc, const char * argv[])
 {
-  const std::size_t dim = 3;
+  if (argc == 1)
+  {
+    std::cout << "Advective-diffusive particle tracking in 3d beadpacks\n"
+              << "with periodic boundary conditions on a cubic domain and\n"
+              << "reaction at constant rate at the bead interfaces.\n"
+              << "----------------------------------------------------\n"
+              << "Parameters (default value in []):\n"
+              << "domain_side : Length of domain side or periodic unit cell\n"
+              << "damkohler : Damkohler number in terms of domain side, reaction rate at interface,\n"
+              << "            and diffusion time\n"
+              << "peclet : Peclet number in terms of domain side, average velocity,\n"
+              << "         and diffusion coefficient\n"
+              << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
+              << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
+              << "time_min_diffusion_times : Minimum output time in units of diffusion time\n"
+              << "time_max_diffusion_times : Maximum output time in units of diffusion time\n"
+              << "nr_measures : Number of measurements\n"
+              << "measure_spacing : 0 - Logarithmic spacing between measurements\n"
+              << "                : 1 - Linear spacing between measurements\n"
+              << "measure_type : 0 - Mass as a function of time (file columns: time mass)\n"
+              << "               1 - Mass as a function of distance (file columns: distance mass)\n"
+              << "               2 - Mass as a function of time (file columns: time mass)\n"
+              << "                   and mass as a function of distance (file columns: distance mass)\n"
+              << "               3 - Time spent in the discretization reactive region (print to console)\n"
+              << "               4 - Positions as a function of time (file columns: time positions)\n"
+              << "               5 - Mass as a function of time (file columns: time mass)\n"
+              << "                   and positions as a function of time (file columns: time positions)\n"
+              << "initial_condition_type : 0 - Uniformly random in the void space a plane\n"
+              << "                       : 1 - Flux-weighted in the void space on a plane\n"
+              << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
+              << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"
+              << "                       : 4 - Uniformly randomly over twice the discretization distance\n"
+              << "                             from the interface in the periodic domain\n"
+              << "                       : 5 - Uniformly randomly over twice the discretization distance\n"
+              << "                             from the interface of all beads\n"
+              << "                       : 6 - Uniformly randomly over the interface in the periodic domain\n"
+              << "                       : 7 - Uniformly randomly over the interface of all beads\n"
+              << "                       : 8 - Load positions from file\n"
+              << "initial_condition_size_domains : Size of initial condition box or plane in domain sides\n"
+              << "initial_mass : Total initial mass\n"
+              << "nr_particles : Number of particles to track\n"
+              << "run_nr : Nonnegative integer identifier for output files\n"
+              << "data_set : Path to input data folder relative to input_dir_base\n"
+              << "           (and model name identifier for output files)\n"
+              << "filename_input_positions : Filename to read positions from\n"
+              << "                           for initial_condition_type = 8 []\n"
+              << "input_dir_base : Path to look for input data [../input]\n"
+              << "output_dir : Path folder to output to [../output]\n";
+    return 0;
+  }
   
   if (argc != 17 && argc != 18 && argc != 19 && argc != 20)
   {
     throw useful::bad_parameters();
   }
+  
+  const std::size_t dim = 3;
   
   using BeadPack = beadpack::BeadPack<dim>;
   using Bead = BeadPack::Bead;
@@ -55,8 +105,8 @@ int main(int argc, const char * argv[])
   
   std::size_t arg = 1;
   double domain_side = atof(argv[arg++]);
-  double Peclet = atof(argv[arg++]);
-  double Damkohler = atof(argv[arg++]);
+  double peclet = atof(argv[arg++]);
+  double damkohler = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
   double time_min_diffusion_times = atof(argv[arg++]);
@@ -146,14 +196,14 @@ int main(int argc, const char * argv[])
   
   std::cout << "Setting up particles...\n";
   double advection_time = domain_side/mean_velocity_magnitude;
-  double diff = domain_side*mean_velocity_magnitude/Peclet;
+  double diff = domain_side*mean_velocity_magnitude/peclet;
   double diffusion_time = domain_side*domain_side/(2.*diff);
   double time_step = std::min(time_step_accuracy_adv*advection_time,
     time_step_accuracy_diff*diffusion_time);
   double mass_per_particle = initial_mass/nr_particles;
   double length_discretization = 10.*std::sqrt(2.*diff*time_step);
   
-  double reaction_rate = Damkohler/diffusion_time*domain_side/length_discretization;
+  double reaction_rate = damkohler/diffusion_time*domain_side/length_discretization;
   auto near_wall = [length_discretization, &bead_pack](State const& state)
   { return bead_pack.near(state.position, length_discretization).first; };
   
@@ -185,7 +235,7 @@ int main(int argc, const char * argv[])
       domain_midpoint, initial_box_centered,
       velocity_field, mean_velocity,
       bead_pack, boundary_periodic,
-      length_discretization,
+      2.*length_discretization,
       filename_input_positions,
       state_maker),
     CTRW::Tag{} };
@@ -217,8 +267,8 @@ int main(int argc, const char * argv[])
   stream << std::scientific << std::setprecision(2);
   stream << domain_side << "_"
          << initial_condition_size_domains << "_"
-         << Peclet << "_"
-         << Damkohler << "_"
+         << peclet << "_"
+         << damkohler << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
          << time_min_diffusion_times << "_"
@@ -353,14 +403,14 @@ int main(int argc, const char * argv[])
           for (auto const& part : ptrw.particles())
             if (near_wall(part.state_new()))
               interface_time += time_step;
+          std::cout << "time = " << time
+                    << "\ttime_last_measure = " << time_max
+                    << "\n";
+          std::cout << "Interface time per particle per time"
+                    << "* domain_side/length_discretization = "
+                    << interface_time/ptrw.time()/nr_particles
+                       *domain_side/length_discretization << "\n";
         }
-        std::cout << "time = " << time
-                  << "\ttime_last_measure = " << time_max
-                  << "\n";
-        std::cout << "Interface time per particle per time"
-                  << "* domain_side/length_discretization = "
-                  << interface_time/ptrw.time()/nr_particles
-                     *domain_side/length_discretization << "\n";
       }
       break;
     }
@@ -390,19 +440,6 @@ int main(int argc, const char * argv[])
                   << "\ttime_last_measure = " << time_max
                   << "\n";
       }
-      break;
-    }
-    case 6:
-    {
-      ctrw::Measurer_Total measurer_mass_time{ filename_output_mass_time };
-      ctrw::Measurer_Particle measurer_positions{ filename_output_positions };
-      double mean_particle_velocity_magnitude = 0.;
-      for (auto const& particle : ctrw.particles())
-      {
-        mean_particle_velocity_magnitude += operation::abs(velocity_field(particle.state_new().position));
-      }
-      mean_particle_velocity_magnitude /= ctrw.size();
-      std::cout << "Mean particle velocity magnitude = "  << mean_particle_velocity_magnitude << "\n";
       break;
     }
       

@@ -16,6 +16,15 @@
 
 namespace beadpack
 {
+  // Get bead positions and radii from file
+  // File columns are bead center components, radius (further columns ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of center components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   rescale : Multiply centers and radii by this factor
+  //   nr_estimate : Estimate the number of beads for efficiency
+  //   delims : possible delimiter characters separating data
   template <typename Bead>
   std::vector<Bead> get_beads
   (std::size_t dim, std::string const& filename,
@@ -36,7 +45,7 @@ namespace beadpack
       std::vector<std::string> split_line;
       boost::algorithm::split(split_line, line, boost::is_any_of(delims));
       
-      beads.push_back({ typename Bead::Position_type(dim), rescale*std::stod(split_line[dim]) });
+      beads.push_back({ typename Bead::Position(dim), rescale*std::stod(split_line[dim]) });
       for (std::size_t dd = 0; dd < dim; ++dd)
         beads.back().center[dd] = rescale*std::stod(split_line[dd]);
     }
@@ -45,6 +54,15 @@ namespace beadpack
     return beads;
   }
   
+  // Get positions of contact points betweem beads from file
+  // File columns are contact point position components (further columns ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of position components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   rescale : Multiply positions by this factor
+  //   nr_estimate : Estimate the number of contacts for efficiency
+  //   delims : possible delimiter characters separating data
   template <typename Point>
   std::vector<Point> get_contacts
   (std::size_t dim, std::string const& filename,
@@ -74,6 +92,15 @@ namespace beadpack
     return contacts;
   }
   
+  // Get velocity vectors (to interpolate) and corresponding positions from file
+  // File columns are contact velocity components, point position components (further columns ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of position components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   rescale_point : Multiply point positions by this factor
+  //   rescale_velocities : Multiply velocity vectors by this factor
+  //   nr_estimate : Estimate the number of contacts for efficiency
   template <typename Point, typename Vector>
   std::pair<std::vector<Point>, std::vector<Vector>> get_points_velocities_velocity_point
   (std::size_t dim, std::string const& filename,
@@ -108,6 +135,13 @@ namespace beadpack
     return points_velocities;
   }
   
+  // Get mean velocity vector from file
+  // First dim values in file (row major) are  mean velocity components (further values ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of position components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   nr_estimate : Estimate the number of contacts for efficiency
   template <typename Vector>
   Vector get_mean_velocity
   (std::size_t dim, std::string const& filename,
