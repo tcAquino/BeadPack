@@ -5,10 +5,14 @@ Particle tracking in beadpacks in two and three dimensions, including advection,
 ## Dependencies
 
 A compiler compatible with C++17 is required (for example, an up-to-date version of the gnu compiler g++ will do).
-Required libraries (header-only):
-- boost : a C++ library implementing useful features and extensions (www.boost.org)
-- CGAL : Interpolation (www.cgal.org)
-- nanoflann : KDTree searching (github.com/jlblancoc/nanoflann)
+Required external libraries:
+- boost : C++ library implementing useful features and extensions (boost.org)
+- CGAL : C++ interpolation library (cgal.org)
+- Eigen : C++ matrix algebra library (eigen.tuxfamily.org)
+- GMP : C arbitrary-precision arithmetic library (gmplib.org)
+- MPFR : C multiple-precision arithmetic with correct rounding library (mpfr.org)
+- nanoflann : C++ KDTree searching library (github.com/jlblancoc/nanoflann)
+- STL : C++ standard template library (provided with C++ compiler)
 
 ## Documentation
 

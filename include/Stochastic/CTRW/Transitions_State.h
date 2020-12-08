@@ -17,6 +17,22 @@
 
 namespace ctrw
 {
+  // Transitions objects must implement the following
+  // basic functionality:
+  // class Transitions
+  // {
+  // public:
+  //   template <typename State>
+  //   void operator() (State& state)
+  //   {
+  //     // Update state for a single transition
+  //   }
+  // };
+  
+  // Update state.position and state.time
+  // by summing quantities returned by a
+  // JumpGenerator and a TimeGenerator object given state
+  // Apply Boundary condition given new state and old state
 	template <typename TimeGenerator, typename JumpGenerator,
   typename Boundary = boundary::DoNothing>
 	class Transitions_Time_Position
@@ -35,8 +51,8 @@ namespace ctrw
 		{
       auto state_old = state;
       operation::plus_InPlace(state.position, jump_generator(state));
-      boundary(state, state_old);
       state.time += time_generator(state);
+      boundary(state, state_old);
 		}
 
 	private:
@@ -50,6 +66,10 @@ namespace ctrw
   (TimeGenerator&&, JumpGenerator&&, Boundary&&) ->
   Transitions_Time_Position<TimeGenerator, JumpGenerator, Boundary>;
   
+  // Update state.position
+  // by summing quantity returned by a
+  // JumpGenerator object given state
+  // Apply Boundary condition given new state and old state
   template <typename JumpGenerator, typename Boundary = boundary::DoNothing>
   class Transitions_Position
   {
@@ -76,6 +96,12 @@ namespace ctrw
   Transitions_Position(JumpGenerator&&, Boundary&&) ->
   Transitions_Position<JumpGenerator, Boundary>;
 
+  // Update state.position according to forward-Euler
+  // with prescribed time step,
+  // with advection contribution according to flow field
+  // along the 0 direction
+  // given position and diffusion
+  // Apply Boundary condition given new state and old state
 	template <typename FlowField, typename Boundary = boundary::DoNothing>
 	class Transitions_PTRW_FlowField_Diff
 	{
@@ -143,6 +169,10 @@ namespace ctrw
    FlowField&&, Boundary&&) ->
   Transitions_PTRW_FlowField_Diff<FlowField, Boundary>;
 
+  // Update state.position according to forward-Euler
+  // for diffusion in one dimension
+  // with prescribed time step
+  // Apply Boundary condition given new state and old state
   template <typename Boundary = boundary::DoNothing>
   class Transitions_PTRW_Diffusion_1d
   {
@@ -188,6 +218,10 @@ namespace ctrw
   (double, double, Boundary&&) ->
   Transitions_PTRW_Diffusion_1d<Boundary>;
   
+  // Update state according to a transport transition given state
+  // followed by a reaction transition given state and time step,
+  // with a prescribed time step
+  // Note: transport rule should enforce any boundary conditions
   template <typename Transitions_Transport, typename Reaction>
   class Transitions_PTRW_Transport_Reaction
   {
@@ -240,6 +274,9 @@ namespace ctrw
   (Transitions_Transport&&, Reaction&&, double) ->
   Transitions_PTRW_Transport_Reaction<Transitions_Transport, Reaction>;
   
+  // Update state according to a transport transition given state
+  // followed by a reaction transition given change in state.time
+  // Note: transport transition should enforce any boundary conditions
   template <typename Transitions_Transport, typename Reaction>
   class Transitions_CTRW_Transport_Reaction
   {
@@ -281,6 +318,11 @@ namespace ctrw
   (Transitions_Transport&&, Reaction&&, double) ->
   Transitions_CTRW_Transport_Reaction<Transitions_Transport, Reaction>;
 
+  // Update state according to a reaction transition given a time step
+  // returned by a TimeGenerator given state,
+  // followed by a change in state.time according to the time step
+  // and a change in position returned by a JumpGenerator given state
+  // Note: JumpGenerator should enforce any boundary conditions
 	template <typename TimeGenerator,
   typename JumpGenerator, typename Reaction>
 	class Transitions_Reaction_Position
@@ -317,6 +359,13 @@ namespace ctrw
   (TimeGenerator&&, JumpGenerator&&, Reaction&&) ->
   Transitions_Reaction_Position<TimeGenerator, JumpGenerator, Reaction>;
   
+  // If state.run, update state.time by summing contribution returned
+  // by TimeGenerator_run object given state, and state.position by
+  // summing contribution returned by JumoGenerator object given state
+  // If not state.run, update state.time by summing contribution returned
+  // by TimeGenerator_tumble object given state, and state.orientation by
+  // summing contribution returned by OrientationGenerator object given state
+  // Flip state.run
   template
   <typename TimeGenerator_run, typename TimeGenerator_tumble,
   typename JumpGenerator, typename OrientationGenerator>
@@ -369,6 +418,23 @@ namespace ctrw
   Transitions_RunTumble<TimeGenerator_run, TimeGenerator_tumble,
   JumpGenerator, OrientationGenerator>;
   
+  // Update state according to current state.state:
+  // 0 (run): Sum to state.position as returned
+  //          by JumpGenerator object given state.
+  //          Apply Boundary condition.
+  //          If state.state has not been switched to wall-tumble,
+  //          apply the StateSwitcher run rule given state
+  //          to obtain new state.state.
+  // 1 (tumble): Apply the StateSwitcher tumble rule given state
+  //             to obtain new state.state.
+  //             If state.state has been switched to run,
+  //             sum to state.orientation as returned
+  //             by OrientationGenerator object given state
+  // 2 (wall-tumble): Apply the StateSwitcher wall_tumble rule given state
+  //                  to obtain new state.state.
+  //                  If state.state has been switched to run,
+  //                  sum to state.orientation as returned
+  //                  by OrientationGenerator_Wall object given state
   template
   <typename Boundary, typename StateSwitcher,
   typename JumpGenerator, typename OrientationGenerator,

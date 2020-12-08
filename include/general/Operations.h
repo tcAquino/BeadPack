@@ -641,6 +641,8 @@ namespace operation
     return hamming;
   }
   
+  // Get component,
+  // with overloads to work for dd=0 with some basic types
   template <std::size_t dd, typename Container>
   auto project(Container const& container)
   { return container[dd]; }

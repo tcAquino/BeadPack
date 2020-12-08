@@ -1,12 +1,12 @@
 CC = g++
 OPT = -O3 -DNDEBUG
 PTH = ../include
-PTHKDTR = /usr/local/include
-PTHCGAL = /usr/local/include
+PTHINC = /usr/local/include
 PTHBIN = ../bin
 PTHLIB = /usr/local/lib
+
 LIB = -L$(PTHLIB)
-INC = -I$(PTH) -I$(PTHKDTR)
+INC = -I$(PTH) -I$(PTHINC)
 CFLAGS = -Wall -std=c++17 $(OPT)
 LFLAGS = -lgmp
 
