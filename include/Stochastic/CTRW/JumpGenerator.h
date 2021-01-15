@@ -86,8 +86,8 @@ namespace ctrw
     // Construct given the velocity field as a function of position
     // and the time step
     JumpGenerator_Velocity
-    (VelocityField&& velocity, double dt)
-    : velocity{ std::forward<VelocityField>(velocity) }
+    (VelocityField&& velocity_field, double dt)
+    : velocity_field{ std::forward<VelocityField>(velocity_field) }
     , dt{ dt }
     {}
 
@@ -103,12 +103,19 @@ namespace ctrw
     template <typename State>
     auto operator() (State const& state)
     {
-      return operation::times_scalar(dt, velocity(state.position));
+      return operation::times_scalar(dt, velocity(state));
+    }
+    
+    // Get the velocity
+    template <typename State>
+    auto velocity(State const& state) const
+    {
+      return velocity(state);
     }
     
   private:
-    VelocityField velocity;   // Velocity as a function of position
-    double dt;                // Time step
+    VelocityField velocity_field;  // Velocity as a function of position
+    double dt;                     // Time step
   };
   template <typename VelocityField>
   JumpGenerator_Velocity(VelocityField&&, double)
@@ -127,8 +134,8 @@ namespace ctrw
     // Construct given the velocity field as a function of position,
     // the time step, and the nr of particles, for which hints will be stored
     JumpGenerator_Velocity_withHint
-    (VelocityField&& velocity, double dt, std::size_t nr_particles)
-    : velocity{ std::forward<VelocityField>(velocity) }
+    (VelocityField&& velocity_field, double dt, std::size_t nr_particles)
+    : velocity_field{ std::forward<VelocityField>(velocity_field) }
     , dt{ dt }
     , hint(nr_particles)
     {}
@@ -145,14 +152,28 @@ namespace ctrw
     template <typename State>
     auto operator() (State const& state)
     {
-      hint[state.tag] = velocity.locate(state.position, hint[state.tag]);
-      return operation::times_scalar(dt,
-        velocity(state.position, hint[state.tag]));
+      locate(state);
+      return operation::times_scalar(dt, velocity(state));
+    }
+    
+    // Get the velocity (without updating hint)
+    template <typename State>
+    auto velocity(State const& state) const
+    {
+      return velocity_field(state.position, hint[state.tag]);
+    }
+    
+    // Update location hint
+    template <typename State>
+    void locate(State const& state)
+    {
+      hint[state.tag] =
+        velocity_field.locate(state.position, hint[state.tag]);
     }
     
   private:
-    VelocityField velocity;  // Velocity as a function of position
-    double dt;               // Time step
+    VelocityField velocity_field;  // Velocity as a function of position
+    double dt;                     // Time step
     
     using Hint =
       typename std::remove_reference<VelocityField>::
@@ -174,8 +195,8 @@ namespace ctrw
     // Construct given the velocity field as a function of position,
     // the time step, and the boundary to enforce boundary conditions
     JumpGenerator_Velocity_RK4
-    (VelocityField&& velocity, double dt, Boundary&& boundary = {})
-    : velocity{ std::forward<VelocityField>(velocity) }
+    (VelocityField&& velocity_field, double dt, Boundary&& boundary = {})
+    : velocity_field{ std::forward<VelocityField>(velocity_field) }
     , dt{ dt }
     , boundary{ std::forward<Boundary>(boundary) }
     {}
@@ -194,21 +215,21 @@ namespace ctrw
     {
       auto state_intermediate = state;
       
-      auto k1 = velocity(state.position);
-      operation::linearOp(1., state.position,
-                          dt/2., k1, state_intermediate.position);
+      auto k1 = velocity(state);
+      operation::linearOp(dt/2., k1, state.position,
+                          state_intermediate.position);
       boundary(state_intermediate, state);
-      auto k2 = velocity(state_intermediate.position);
-      operation::linearOp(1., state.position,
-                          dt/2., k2, state_intermediate.position);
+      auto k2 = velocity(state_intermediate);
+      operation::linearOp(dt/2., k2, state.position,
+                          state_intermediate.position);
       boundary(state_intermediate, state);
-      auto k3 = velocity(state_intermediate.position);
-      operation::linearOp(1., state.position,
-                          dt, k3, state_intermediate.position);
+      auto k3 = velocity(state_intermediate);
+      operation::linearOp(dt, k3, state.position,
+                          state_intermediate.position);
       boundary(state_intermediate, state);
-      auto k4 = velocity(state_intermediate.position);
+      auto k4 = velocity(state_intermediate);
       
-      auto jump = operation::sum(k1, k4);
+      auto jump = operation::plus(k1, k4);
       operation::linearOp_InPlace(1., jump, 2., k2);
       operation::linearOp_InPlace(1., jump, 2., k3);
       operation::times_scalar_InPlace(dt/6., jump);
@@ -216,10 +237,17 @@ namespace ctrw
       return jump;
     }
     
+    // Get the velocity
+    template <typename State>
+    auto velocity(State const& state) const
+    {
+      return velocity_field(state.position);
+    }
+    
   private:
-    VelocityField velocity;
-    double dt;
-    Boundary boundary;
+    VelocityField velocity_field;  // Velocity as a function of position
+    double dt;                     // Time step
+    Boundary boundary;             // Boundary conditions
   };
   template <typename VelocityField, typename Boundary>
   JumpGenerator_Velocity_RK4
@@ -241,9 +269,9 @@ namespace ctrw
     // the time step, the nr of particles, for which hints will be stored,
     // and the boundary to enforce boundary conditions
     JumpGenerator_Velocity_withHint_RK4
-    (VelocityField&& velocity, double dt,
+    (VelocityField&& velocity_field, double dt,
      std::size_t nr_particles, Boundary&& boundary = {})
-    : velocity{ std::forward<VelocityField>(velocity) }
+    : velocity_field{ std::forward<VelocityField>(velocity_field) }
     , dt{ dt }
     , hint(nr_particles)
     , boundary{ std::forward<Boundary>(boundary) }
@@ -257,38 +285,53 @@ namespace ctrw
     double time_step() const
     { return dt; }
     
-    // Return the jump increment
+    // Get the jump increment
     template <typename State>
     auto operator() (State const& state)
     {
       auto state_intermediate = state;
-      hint[state.tag] = velocity.locate(state.position, hint[state.tag]);
+      locate(state);
       
-      auto k1 = velocity(state.position, hint[state.tag]);
+      auto k1 = velocity(state);
       operation::linearOp(dt/2., k1, state.position,
                           state_intermediate.position);
       boundary(state_intermediate, state);
-      auto k2 = velocity(state_intermediate.position, hint[state.tag]);
+      auto k2 = velocity(state_intermediate);
       operation::linearOp(dt/2., k2, state.position,
                           state_intermediate.position);
       boundary(state_intermediate, state);
-      auto k3 = velocity(state_intermediate.position, hint[state.tag]);
+      auto k3 = velocity(state_intermediate);
       operation::linearOp(dt, k3, state.position,
                           state_intermediate.position);
       boundary(state_intermediate, state);
-      auto k4 = velocity(state_intermediate.position, hint[state.tag]);
+      auto k4 = velocity(state_intermediate);
       
       auto jump = operation::plus(k1, k4);
       operation::linearOp_InPlace(1., jump, 2., k2);
       operation::linearOp_InPlace(1., jump, 2., k3);
       operation::times_scalar_InPlace(dt/6., jump);
-      
+  
       return jump;
     }
     
+    // Get the velocity (without updating hint)
+    template <typename State>
+    auto velocity(State const& state) const
+    {
+      return velocity_field(state.position, hint[state.tag]);
+    }
+    
+    // Update location hint
+    template <typename State>
+    void locate(State const& state)
+    {
+      hint[state.tag] =
+        velocity_field.locate(state.position, hint[state.tag]);
+    }
+    
   private:
-    VelocityField velocity;  // Velocity as a function of position
-    double dt;               // Time step
+    VelocityField velocity_field;  // Velocity as a function of position
+    double dt;                     // Time step
     
     using Hint =
       typename std::remove_reference<VelocityField>::type::Hint; // Hint type

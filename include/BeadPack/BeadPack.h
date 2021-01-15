@@ -287,6 +287,33 @@ namespace beadpack
       operation::div_scalar_InPlace(mean, double(nr_samples));
     }
     
+    // Compute porosity
+    double compute_porosity
+    (std::vector<std::pair<double,double>> const& boundaries,
+     std::size_t nr_samples) const
+    {
+      std::mt19937 rng{ std::random_device{}() };
+      std::vector<std::uniform_real_distribution<double>> dist;
+      dist.reserve(dim);
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        dist.emplace_back(boundaries[dd].first,
+                          boundaries[dd].second);
+      
+      std::vector<double> position(dim);
+      std::size_t samples = 0;
+      std::size_t void_samples = 0;
+      while (samples < nr_samples)
+      {
+        for (std::size_t dd = 0; dd < dim; ++dd)
+          position[dd] = dist[dd](rng);
+        if (!inside(position).first)
+          ++void_samples;
+        ++samples;
+      }
+      
+      return void_samples/double(samples);
+    }
+    
     // Find bead with center nearest to position
     // Return a pair, first element is the bead index,
     // second element is the distance squared

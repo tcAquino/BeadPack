@@ -130,10 +130,15 @@ int main(int argc, const char * argv[])
     std::vector<double>>(dim, velocity_filename, 1);
   std::cout << "\tDone!\n";
   
-  std::cout << "Adding zero velocity grid points at contacts...\n";
+  std::cout << "Adding zero velocity grid points at bead contacts and centers...\n";
   for (auto const& point : contacts)
   {
     points_velocities.first.push_back(point);
+    points_velocities.second.emplace_back(dim, 0.);
+  }
+  for (auto const& bead : bead_pack.beads())
+  {
+    points_velocities.first.push_back(bead.center);
     points_velocities.second.emplace_back(dim, 0.);
   }
   std::cout << "\tDone!\n";
@@ -170,12 +175,12 @@ int main(int argc, const char * argv[])
     output << "\n";
     std::cout << "\t\tDone!\n";
   }
-  double mean_velocity_magnitude = operation::abs(mean_velocity);
+  double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up particles...\n";
-  double advection_time = domain_side/mean_velocity_magnitude;
-  double diff = domain_side*mean_velocity_magnitude/peclet;
+  double advection_time = domain_side/magnitude_mean_velocity;
+  double diff = domain_side*magnitude_mean_velocity/peclet;
   double diffusion_time = domain_side*domain_side/(2.*diff);
   double time_step = std::min(time_step_accuracy_adv*advection_time,
     time_step_accuracy_diff*diffusion_time);

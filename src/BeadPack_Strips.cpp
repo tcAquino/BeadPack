@@ -118,10 +118,15 @@ int main(int argc, const char * argv[])
     std::vector<double>>(dim, velocity_filename, 1);
   std::cout << "\tDone!\n";
   
-  std::cout << "Adding zero velocity grid points at contacts...\n";
+  std::cout << "Adding zero velocity grid points at bead contacts and centers...\n";
   for (auto const& point : contacts)
   {
     points_velocities.first.push_back(point);
+    points_velocities.second.emplace_back(dim, 0.);
+  }
+  for (auto const& bead : bead_pack.beads())
+  {
+    points_velocities.first.push_back(bead.center);
     points_velocities.second.emplace_back(dim, 0.);
   }
   std::cout << "\tDone!\n";
@@ -158,12 +163,12 @@ int main(int argc, const char * argv[])
     output << "\n";
     std::cout << "\t\tDone!\n";
   }
-  double mean_velocity_magnitude = operation::abs(mean_velocity);
+  double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up particles...\n";
   double initial_strip_segment_length = initial_strip_segment_length_factor*domain_side;
-  double advection_time = domain_side/mean_velocity_magnitude;
+  double advection_time = domain_side/magnitude_mean_velocity;
   double time_step = time_step_accuracy_adv*advection_time;
   std::size_t max_particles = max_particles_strip*nr_strips;
   std::size_t particles_strip = 2;

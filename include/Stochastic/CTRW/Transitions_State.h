@@ -87,6 +87,17 @@ namespace ctrw
       operation::plus_InPlace(state.position, jump_generator(state));
       boundary(state, state_old);
     }
+    
+    template <typename Time = double>
+    void time_step(Time time_step)
+    {
+      jump_generator.time_step(time_step);
+    }
+    
+    auto time_step() const
+    {
+      return jump_generator.time_step();
+    }
 
   private:
     JumpGenerator jump_generator;
@@ -95,6 +106,87 @@ namespace ctrw
   template <typename JumpGenerator, typename Boundary>
   Transitions_Position(JumpGenerator&&, Boundary&&) ->
   Transitions_Position<JumpGenerator, Boundary>;
+
+  template <typename JumpGenerator>
+  struct VelocityFromGenerator
+  {
+    VelocityFromGenerator
+    (JumpGenerator const& jump_generator)
+    : jump_generator{ jump_generator }
+    {}
+    
+    template <typename State>
+    auto operator()(State const& state) const
+    { return this->jump_generator.velocity(state); }
+    
+  private:
+    JumpGenerator const& jump_generator;
+  };
+  
+  // Update state.position according to a JumpGenerator object given state
+  // with time step according to prescribed jump size divided
+  // by velocity calculated accorsing to Velocity object given state
+  // Apply Boundary condition given new state and old state
+  template <typename JumpGenerator,
+  typename Velocity,
+  typename Boundary = boundary::DoNothing>
+  class Transitions_Position_VelocityStep
+  {
+  public:
+    Transitions_Position_VelocityStep
+    (double step_length,
+     JumpGenerator&& jump_generator,
+     Velocity&& velocity,
+     Boundary&& boundary)
+    : step_length{ step_length }
+    , jump_generator{ std::forward<JumpGenerator>(jump_generator) }
+    , velocity_field{ std::forward<Velocity>(velocity_field) }
+    , boundary{ std::forward<Boundary>(boundary) }
+    {}
+    
+    Transitions_Position_VelocityStep
+    (double step_length,
+     JumpGenerator&& jump_generator,
+     Boundary&& boundary = {})
+    : step_length{ step_length }
+    , jump_generator{ std::forward<JumpGenerator>(jump_generator) }
+    , velocity_field{ VelocityFromGenerator{ this->jump_generator } }
+    , boundary{ std::forward<Boundary>(boundary) }
+    {}
+
+    template <typename State>
+    void operator() (State& state)
+    {
+      auto state_old = state;
+      jump_generator.time_step(step_length/operation::abs(velocity(state)));
+      operation::plus_InPlace(state.position, jump_generator(state));
+      state.time += jump_generator.time_step();
+      boundary(state, state_old);
+    }
+    
+    template <typename State>
+    auto velocity(State const& state) const
+    { return velocity_field(state); }
+    
+    auto time_step() const
+    { return jump_generator.time_step(); }
+
+  private:
+    double step_length;
+    JumpGenerator jump_generator;
+    Velocity velocity_field;  // Velocity field given state
+    Boundary boundary;
+  };
+  template <typename JumpGenerator, typename Velocity,
+  typename Boundary>
+  Transitions_Position_VelocityStep
+  (double, JumpGenerator&&, Velocity&&, Boundary&&) ->
+  Transitions_Position_VelocityStep<JumpGenerator, Velocity, Boundary>;
+  template <typename JumpGenerator, typename Boundary>
+  Transitions_Position_VelocityStep
+  (double, JumpGenerator&&, Boundary&&) ->
+  Transitions_Position_VelocityStep
+  <JumpGenerator, VelocityFromGenerator<JumpGenerator>, Boundary>;
 
   // Update state.position according to forward-Euler
   // with prescribed time step,

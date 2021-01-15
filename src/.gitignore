@@ -1,0 +1,10 @@
+/*
+!.gitignore
+!BeadPack_Fp.cpp
+!BeadPack_ReactionMap.cpp
+!BeadPack_Reactive.cpp
+!BeadPack_Return.cpp
+!BeadPack_Statistics.cpp
+!BeadPack_Strips.cpp
+!BeadPack.cpp
+!Makefile

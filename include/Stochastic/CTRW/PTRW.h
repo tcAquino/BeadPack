@@ -29,7 +29,7 @@ namespace ctrw
     : ctrw{ ctrw }
     , transitions{ transitions }
     , current_time{ time }
-		{ time_step(transitions.timestep()); }
+		{ time_step(transitions.time_step()); }
     
     // Construct with given CTRW, transition handler,
     // time step, and initial time
@@ -58,12 +58,11 @@ namespace ctrw
     void clear()
     { ctrw.clear(); }
 
-    // Set time step
+    // Set timestep and evolve all particles one time step
 		void step(Time dt)
 		{
-			transitions.timestep(dt);
-			ctrw.step(transitions);
-      current_time += dt;
+			transitions.time_step(dt);
+      step();
 		}
 
     // Evolve all particles one time step
