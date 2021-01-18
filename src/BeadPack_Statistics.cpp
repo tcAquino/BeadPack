@@ -683,12 +683,12 @@ int main(int argc, const char * argv[])
        ctrw::Get_position_periodic{ domain_dimensions } };
       
       std::vector<double> velocity_autocorrelation(distances.size());
-      std::vector<double> velocity_magnitude(distances.size());
       std::vector<double> velocity_mean(nr_samples);
       std::vector<std::size_t> surving_trajectories(distances.size(), nr_samples);
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
+        std::vector<double> velocity_magnitude(distances.size());
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         ctrw::Transitions_Position_VelocityStep transitions{
             jump_size,
@@ -720,7 +720,7 @@ int main(int argc, const char * argv[])
             distance_traveled += distance_increment;
             velocity_mean[pp] += operation::abs(getter_velocity_old(part))*distance_increment;
           }
-          velocity_magnitude[ss] += operation::abs(getter_velocity_old(part));
+          velocity_magnitude[ss] = operation::abs(getter_velocity_old(part));
           if (operation::abs(getter_velocity(part)) == 0.)
           {
             for (std::size_t ss2 = ss+1; ss2 < distances.size(); ++ss2)
@@ -794,12 +794,12 @@ int main(int argc, const char * argv[])
        ctrw::Get_position_periodic{ domain_dimensions } };
       
       std::vector<double> velocity_autocorrelation(times.size());
-      std::vector<double> velocity_magnitude(times.size());
       std::vector<double> velocity_mean(nr_samples);
       std::vector<std::size_t> surving_trajectories(times.size(), nr_samples);
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
+        std::vector<double> velocity_magnitude(times.size());
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         ctrw::Transitions_Position_VelocityStep transitions{
             jump_size,
@@ -828,7 +828,7 @@ int main(int argc, const char * argv[])
             velocity_mean[pp] +=
               operation::abs(getter_velocity_old(part))*transitions.time_step();
           }
-          velocity_magnitude[tt] += operation::abs(getter_velocity_old(part));
+          velocity_magnitude[tt] = operation::abs(getter_velocity_old(part));
           if (operation::abs(getter_velocity(part)) == 0.)
           {
             for (std::size_t tt2 = tt+1; tt2 < times.size(); ++tt2)
