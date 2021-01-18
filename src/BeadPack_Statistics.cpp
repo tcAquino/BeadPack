@@ -323,7 +323,7 @@ int main(int argc, const char * argv[])
       auto getter_position_old = ctrw::Get_old_from_particle{
        ctrw::Get_position_periodic{ domain_dimensions } };
       
-      std::vector<double> velocity_mean(nr_samples);
+      std::vector<double> velocity_mean(particles.size());
       std::size_t discarded = 0;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
@@ -406,8 +406,8 @@ int main(int argc, const char * argv[])
       double jump_size = jump_size_domains*domain_side;
       double time_max = measure_max*domain_side/operation::abs(mean_velocity);
       
-      std::vector<double> velocity_mean(nr_samples);
-      std::size_t surving_trajectories = nr_samples;
+      std::vector<double> velocity_mean(particles.size());
+      std::size_t surviving_trajectories = nr_samples;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -436,11 +436,11 @@ int main(int argc, const char * argv[])
           velocity_mean[pp] += operation::abs(getter_velocity_old(part))*transitions.time_step();
         }
         if (operation::abs(getter_velocity(part)) == 0.)
-          --surving_trajectories;
+          --surviving_trajectories;
         if (velocity_mean[pp] != 0.)
           velocity_mean[pp] /= std::min(time_max, part.state_new().time);
       }
-      std::cout << nr_samples - surving_trajectories
+      std::cout << nr_samples - surviving_trajectories
                 << " trajectories discarded due to zero velocity\n";
       
       std::stringstream stream;
@@ -487,7 +487,7 @@ int main(int argc, const char * argv[])
        ctrw::Get_position_periodic{ domain_dimensions } };
       
       std::vector<double> velocity_autocorrelation(distances.size());
-      std::vector<std::size_t> surving_trajectories(distances.size(), nr_samples);
+      std::vector<std::size_t> surviving_trajectories(distances.size(), nr_samples);
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -526,13 +526,13 @@ int main(int argc, const char * argv[])
           if (operation::abs(getter_velocity(part)) == 0.)
           {
             for (std::size_t ss2 = ss+1; ss2 < distances.size(); ++ss2)
-              --surving_trajectories[ss2];
+              --surviving_trajectories[ss2];
             break;
           }
         }
       }
-      operation::div_InPlace(velocity_autocorrelation, surving_trajectories);
-      std::cout << nr_samples - surving_trajectories.back()
+      operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
+      std::cout << nr_samples - surviving_trajectories.back()
                 << " trajectories discarded due to zero velocity\n";
       
       std::stringstream stream;
@@ -591,7 +591,7 @@ int main(int argc, const char * argv[])
        ctrw::Get_position_periodic{ domain_dimensions } };
       
       std::vector<double> velocity_autocorrelation(times.size());
-      std::vector<std::size_t> surving_trajectories(times.size(), nr_samples);
+      std::vector<std::size_t> surviving_trajectories(times.size(), nr_samples);
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -626,13 +626,13 @@ int main(int argc, const char * argv[])
           if (operation::abs(getter_velocity(part)) == 0.)
           {
             for (std::size_t tt2 = tt+1; tt2 < times.size(); ++tt2)
-              --surving_trajectories[tt2];
+              --surviving_trajectories[tt2];
             break;
           }
         }
       }
-      operation::div_InPlace(velocity_autocorrelation, surving_trajectories);
-      std::cout << nr_samples - surving_trajectories.back()
+      operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
+      std::cout << nr_samples - surviving_trajectories.back()
                 << " trajectories discarded due to zero velocity\n";
       
       std::stringstream stream;
@@ -683,8 +683,8 @@ int main(int argc, const char * argv[])
        ctrw::Get_position_periodic{ domain_dimensions } };
       
       std::vector<double> velocity_autocorrelation(distances.size());
-      std::vector<double> velocity_mean(nr_samples);
-      std::vector<std::size_t> surving_trajectories(distances.size(), nr_samples);
+      std::vector<double> velocity_mean(particles.size());
+      std::vector<std::size_t> surviving_trajectories(distances.size(), nr_samples);
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -718,13 +718,13 @@ int main(int argc, const char * argv[])
             double distance_increment = operation::abs(operation::minus(getter_position(part),
               getter_position_old(part)));
             distance_traveled += distance_increment;
-            velocity_mean[pp] += operation::abs(getter_velocity_old(part))*distance_increment;
+            velocity_mean[pp] += velocity_magnitude*distance_increment;
           }
           velocity_magnitude[ss] = operation::abs(getter_velocity_old(part));
           if (operation::abs(getter_velocity(part)) == 0.)
           {
             for (std::size_t ss2 = ss+1; ss2 < distances.size(); ++ss2)
-              --surving_trajectories[ss2];
+              --surviving_trajectories[ss2];
             break;
           }
         }
@@ -734,8 +734,8 @@ int main(int argc, const char * argv[])
           velocity_autocorrelation[ss] += (initial_velocity-velocity_mean[pp])
             *(velocity_magnitude[ss]-velocity_mean[pp]);
       }
-      operation::div_InPlace(velocity_autocorrelation, surving_trajectories);
-      std::cout << nr_samples - surving_trajectories.back()
+      operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
+      std::cout << nr_samples - surviving_trajectories.back()
                 << " trajectories discarded due to zero velocity\n";
       
       std::stringstream stream;
@@ -794,8 +794,8 @@ int main(int argc, const char * argv[])
        ctrw::Get_position_periodic{ domain_dimensions } };
       
       std::vector<double> velocity_autocorrelation(times.size());
-      std::vector<double> velocity_mean(nr_samples);
-      std::vector<std::size_t> surving_trajectories(times.size(), nr_samples);
+      std::vector<double> velocity_mean(particles.size());
+      std::vector<std::size_t> surviving_trajectories(times.size(), nr_samples);
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -825,14 +825,13 @@ int main(int argc, const char * argv[])
             if (velocity_magnitude == 0.)
               break;
             ctrw.step(transitions);
-            velocity_mean[pp] +=
-              operation::abs(getter_velocity_old(part))*transitions.time_step();
+            velocity_mean[pp] += velocity_magnitude*transitions.time_step();
           }
           velocity_magnitude[tt] = operation::abs(getter_velocity_old(part));
           if (operation::abs(getter_velocity(part)) == 0.)
           {
             for (std::size_t tt2 = tt+1; tt2 < times.size(); ++tt2)
-              --surving_trajectories[tt2];
+              --surviving_trajectories[tt2];
             break;
           }
         }
@@ -842,8 +841,9 @@ int main(int argc, const char * argv[])
           velocity_autocorrelation[tt] += (initial_velocity-velocity_mean[pp])
             *(velocity_magnitude[tt]-velocity_mean[pp]);
       }
-      operation::div_InPlace(velocity_autocorrelation, surving_trajectories);
-      std::cout << nr_samples - surving_trajectories.back() << " trajectories discarded due to zero velocity\n";
+      operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
+      std::cout << nr_samples - surviving_trajectories.back()
+                << " trajectories discarded due to zero velocity\n";
       
       std::stringstream stream;
       stream << std::scientific << std::setprecision(2);
