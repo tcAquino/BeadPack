@@ -14,7 +14,9 @@
 #include <utility>
 #include <vector>
 #include "general/Constants.h"
+#include "general/Operations.h"
 #include "Geometry/Shape.h"
+#include "Geometry/SymmetryPlanes.h"
 #include "Grid/Grid.h"
 
 
@@ -114,7 +116,7 @@ namespace boundary
 	class Periodic_1d
 	{
 	public:
-		std::pair<double, double> boundaries;  // Lower and upper boundaries
+		const std::pair<double, double> boundaries;  // Lower and upper boundaries
 
     // Construct given lower and upper boundaries
 		Periodic_1d(std::pair<double, double> boundaries)
@@ -123,7 +125,7 @@ namespace boundary
 
     // Check if position is out of bounds
 		template <typename Position>
-		bool outOfBounds(Position const& position) const
+		bool outOfBounds(Position position) const
 		{ return OutOfBounds_Box(position, boundaries); }
 
     // Enforce boundary condition
@@ -135,6 +137,13 @@ namespace boundary
       state.position += periodic(state.position, boundaries);
       return true;
     }
+    
+    template <typename Position, typename Projection = std::vector<double>>
+    void translate(Position& position, Projection projection) const
+    {
+      operation::plus(position,
+                      (boundaries.second-boundaries.first)*projection);
+    }
 	};
 
   // Periodic boundaries along each dimension
@@ -144,10 +153,13 @@ namespace boundary
 	public:
     // Lower and upper boundaries along each dimension
 		const std::vector<std::pair<double, double>> boundaries;
+    const std::vector<double> domain_dimensions;
+    
 
     // Construct given lower and upper boundaries along each dimension
 		Periodic(std::vector<std::pair<double, double>> boundaries)
-		: boundaries(boundaries)
+    : boundaries{ boundaries }
+    , domain_dimensions{ make_dimensions(boundaries) }
 		{}
 
     // Check if position is out of bounds
@@ -165,6 +177,26 @@ namespace boundary
         state.position[dd] += periodic(state.position[dd], boundaries[dd]);
       return true;
 		}
+    
+    // Helper to translate position according to symmetry planes
+    template <typename Position, typename Projections = std::vector<double>>
+    void translate
+    (Position& position, Projections projections) const
+    {
+      operation::plus(position,
+                      operation::times(domain_dimensions,projections));
+    }
+    
+  private:
+    std::vector<double> make_dimensions
+    (std::vector<std::pair<double, double>> const& boundaries) const
+    {
+      std::vector<double> dimensions;
+      for (auto const& val : boundaries)
+        dimensions.push_back(val.second - val.first);
+        
+      return dimensions;
+    }
 	};
   
   // Periodic boundaries along each dimension
@@ -177,11 +209,13 @@ namespace boundary
   public:
     const std::vector<std::pair<double, double>>
       boundaries;  // Lower and upper boundaries along each dimension
+    const std::vector<double> domain_dimensions;
 
     // Construct given lower and upper boundaries
     Periodic_WithOutsideInfo
     (std::vector<std::pair<double, double>> boundaries)
     : boundaries(boundaries)
+    , domain_dimensions{ make_dimensions(boundaries) }
     {}
 
     // Check if position is out of bounds
@@ -204,6 +238,26 @@ namespace boundary
       }
       return true;
     }
+    
+    // Helper to translate position according to symmetry planes
+    template <typename Position, typename Projections = std::vector<double>>
+    void translate
+    (Position& position, Projections const& projections) const
+    {
+      operation::plus(position,
+                      operation::times(domain_dimensions, projections));
+    }
+    
+  private:
+    std::vector<double> make_dimensions
+    (std::vector<std::pair<double, double>> const& boundaries) const
+    {
+      std::vector<double> dimensions;
+      for (auto const& val : boundaries)
+        dimensions.push_back(val.second - val.first);
+        
+      return dimensions;
+    }
   };
 
   // Reflecting boundary in one dimension
@@ -211,7 +265,7 @@ namespace boundary
 	class Reflecting_1d
 	{
 	public:
-		std::pair<double, double> boundaries;  // Lower and upper boundaries
+		const std::pair<double, double> boundaries;  // Lower and upper boundaries
 
     // Construct given lower and upper boundaries
 		Reflecting_1d(std::pair<double, double> boundaries)
@@ -271,8 +325,8 @@ namespace boundary
   {
   public:
     
-    std::pair<double, double> boundaries;  // Lower and upper boundaries along dimension dd
-    static const std::size_t dim = dd;     // Dimension for outside visibility
+    const std::pair<double, double> boundaries;  // Lower and upper boundaries along dimension dd
+    static const std::size_t dim = dd;           // Dimension for outside visibility
 
     // Construct with boundaries at same distance from origin given domain halfwidth
     Reflecting_dim(double half_width)
@@ -641,6 +695,120 @@ namespace boundary
   private:
     BeadPack const& bead_pack;                  // Beadpack with beads to reflect off
     PeriodicBoundary const& periodic_boundary;  // Boundary object for periodic boundaries
+  };
+  
+  // Periodic boundaries along each symmetry plane
+  // State must define: position (vector type)
+  template <typename SymmetryPlanes>
+  class Periodic_SymmetryPlanes
+  {
+  public:
+    const SymmetryPlanes symmetry_planes;
+    const double scale;
+    const std::vector<double> origin;
+    
+    // Construct given symmetry plane object,
+    // overall scale factor, and coordinate origin
+    Periodic_SymmetryPlanes
+    (SymmetryPlanes symmetry_planes, double scale = 1.,
+     std::vector<double> origin = {})
+    : symmetry_planes{ symmetry_planes }
+    , scale{ scale }
+    , origin{ origin.size() == 0.
+      ? std::vector<double>(symmetry_planes.dim, 0.)
+      : origin }
+    {}
+
+    // Check if position is out of bounds
+    template <typename Position>
+    bool outOfBounds(Position const& position) const
+    {
+      for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
+        if (geometry::project(position, symmetry_planes, dd, scale, origin))
+          return 1;
+      return 0;
+    }
+
+    // Enforce boundary condition
+    template <typename State>
+    bool operator()(State& state, State const& state_old = {}) const
+    {
+      auto projections = place_in_unit_cell(state.position, symmetry_planes, scale, origin);
+      
+      for (auto const& val : projections)
+      if (val)
+        return true;
+      
+      return false;
+    }
+    
+    // Helper to translate position according to symmetry planes
+    template <typename Position, typename Projections = std::vector<double>>
+    void translate
+    (Position& position, Projections const& projections) const
+    {
+      geometry::translate(position, symmetry_planes, projections, scale);
+    }
+    
+  };
+  
+  // Periodic boundaries along each symmetry plane
+  // with information about where position would be outside domain
+  // State must define: position (vector type)
+  //                    periodicity (std::vector<int>) counting how many domains
+  //                                                   have been traveled along each dimension
+  template <typename SymmetryPlanes>
+  class Periodic_SymmetryPlanes_WithOutsideInfo
+  {
+  public:
+    const SymmetryPlanes symmetry_planes;
+    const double scale;
+    const std::vector<double> origin;
+
+    // Construct given symmetry plane object,
+    // overall scale factor, and coordinate origin
+    Periodic_SymmetryPlanes_WithOutsideInfo
+    (SymmetryPlanes symmetry_planes, double scale = 1.,
+     std::vector<double> origin = {})
+    : symmetry_planes{ symmetry_planes }
+    , scale{ scale }
+    , origin{ origin.size() == 0.
+      ? std::vector<double>(symmetry_planes.dim, 0.)
+      : origin }
+    {}
+    
+    // Check if position is out of bounds
+    template <typename Position>
+    bool outOfBounds(Position const& position) const
+    {
+      for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
+        if (geometry::project(position, symmetry_planes, dd, scale, origin))
+          return 1;
+      return 0;
+    }
+
+    // Enforce boundary condition
+    template <typename State>
+    bool operator()(State& state, State const& state_old = {}) const
+    {
+      auto projections =
+        geometry::place_in_unit_cell(state.position, symmetry_planes, scale, origin);
+      operation::plus_InPlace(state.periodicity, projections);
+      
+      for (auto const& val : projections)
+        if (val)
+          return 1;
+      
+      return 0;
+    }
+    
+    // Helper to translate position according to symmetry planes
+    template <typename Position, typename Projections = std::vector<double>>
+    void translate
+    (Position& position, Projections const& projections) const
+    {
+      geometry::translate(position, symmetry_planes, projections, scale);
+    }
   };
 }
 

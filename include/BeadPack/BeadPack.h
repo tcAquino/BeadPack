@@ -232,8 +232,9 @@ namespace beadpack
     }
     
     // Compute mean value of a vector field outside of beads
+    // in region with boundaries along each dimension
     template
-    <typename Field, typename Container = std::vector<double>>
+    <typename Field, typename Boundary, typename Container = std::vector<double>>
     Container compute_mean_vector
     (Field const& field,
      std::vector<std::pair<double,double>> const& boundaries,
@@ -245,6 +246,7 @@ namespace beadpack
     }
     
     // Compute mean value of a scalar field outside of beads
+    // in region with boundaries along each dimension
     template <typename Field, typename Value = double>
     Value compute_mean
     (Field const& field,
@@ -257,6 +259,7 @@ namespace beadpack
     }
     
     // Compute mean value of a field outside of beads
+    // in region with boundaries along each dimension
     // Place result in mean
     template <typename Field, typename Container>
     void compute_mean
@@ -287,7 +290,7 @@ namespace beadpack
       operation::div_scalar_InPlace(mean, double(nr_samples));
     }
     
-    // Compute porosity
+    // Compute porosity in region with boundaries along each dimension
     double compute_porosity
     (std::vector<std::pair<double,double>> const& boundaries,
      std::size_t nr_samples) const

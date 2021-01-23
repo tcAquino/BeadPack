@@ -11,15 +11,12 @@
 #include <random>
 #include <sstream>
 #include <string>
-#include <utility>
 #include <vector>
-#include "BeadPack/BeadPack.h"
-#include "BeadPack/BeadPack_InitialConditions.h"
-#include "BeadPack/BeadPack_Input.h"
+#include "BeadPack/BeadPack_Models.h"
 #include "Field/VectorField_Interpolated.h"
 #include "general/Operations.h"
 #include "general/Ranges.h"
-#include "Stochastic/CTRW/Boundary.h"
+#include "general/useful.h"
 #include "Stochastic/CTRW/CTRW.h"
 #include "Stochastic/CTRW/JumpGenerator.h"
 #include "Stochastic/CTRW/Measurer.h"
@@ -31,6 +28,8 @@
 
 int main(int argc, const char * argv[])
 {
+  using namespace model_beadpack_cartesian_cubic;
+  
   if (argc == 1)
   {
     std::cout << "First passage times and distances to the fluid-solid interface\n"
@@ -38,7 +37,6 @@ int main(int argc, const char * argv[])
               << "with periodic boundary conditions on a cubic domain.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"
-              << "domain_side : Length of domain side or periodic unit cell\n"
               << "peclet : Peclet number in terms of domain side, average velocity,\n"
               << "         and diffusion coefficient\n"
               << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
@@ -67,30 +65,19 @@ int main(int argc, const char * argv[])
     return 0;
   }
   
-  if (argc != 11 && argc != 12 && argc != 13 && argc != 14)
-  {
+  if (argc < 10)
     throw useful::bad_parameters();
-  }
-  
-  const std::size_t dim = 3;
-  
-  using BeadPack = beadpack::BeadPack<dim>;
-  using Bead = BeadPack::Bead;
-  using VelocityField = field::VectorField_LinearInterpolation_UnstructuredGrid<dim>;
-  
-  using Boundary_Periodic = boundary::Periodic_WithOutsideInfo;
-  using Boundary = boundary::ReflectingBeads_Periodic<BeadPack, Boundary_Periodic>;
   
   using State = ctrw::State_periodic<std::vector<double>,
     std::vector<int>, useful::Empty, useful::Empty, std::size_t>;
   using CTRW = ctrw::CTRW<State>;
-  
-  using JumpGenerator_Advection = ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
+  using Boundary = Boundaries::Boundary_Reflecting_Periodic;
+  using JumpGenerator_Advection
+    = ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
   using JumpGenerator_Diffusion = ctrw::JumpGenerator_Diffusion;
   using JumpGenerator = ctrw::JumpGenerator_Add<JumpGenerator_Advection, JumpGenerator_Diffusion>;
   
   std::size_t arg = 1;
-  double domain_side = atof(argv[arg++]);
   double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
@@ -106,82 +93,34 @@ int main(int argc, const char * argv[])
   
   std::string input_dir = input_dir_base + "/" + data_set;
   std::cout << std::scientific << std::setprecision(2);
-    
-  std::vector<double> domain_dimensions(dim, domain_side);
-  std::vector<std::pair<double, double>> boundaries;
-  boundaries.reserve(dim);
-  for (std::size_t dd = 0; dd < dim; ++dd)
-    boundaries.push_back({ 0., domain_side });
   
-  std::cout << "Importing beads...\n";
-  std::string bead_filename = input_dir + "/" + "spheres.dat";
-  BeadPack bead_pack{ beadpack::get_beads<Bead>(dim, bead_filename, 1, domain_side) };
+ Geometry geometry{};
+  
+  std::cout << "Making bead pack...\n";
+  BeadPack bead_pack = make_bead_pack(input_dir, geometry);
   std::cout << "\tDone!\n";
   
-  std::cout << "Importing contacts...\n";
-  std::string contact_filename = input_dir + "/" + "contacts.dat";
-  auto contacts = beadpack::get_contacts<std::vector<double>>(dim, contact_filename, 1, domain_side);
-  std::cout << "\tDone!\n";
-  
-  std::cout << "Importing grid points and velocities...\n";
-  std::string velocity_filename = input_dir + "/" + "velocities.csv";
-  auto points_velocities = beadpack::get_points_velocities_velocity_point<
-    std::vector<double>,
-    std::vector<double>>(dim, velocity_filename, 1);
-  std::cout << "\tDone!\n";
-  
-  std::cout << "Adding zero velocity grid points at bead contacts and centers...\n";
-  for (auto const& point : contacts)
-  {
-    points_velocities.first.push_back(point);
-    points_velocities.second.emplace_back(dim, 0.);
-  }
-  for (auto const& bead : bead_pack.beads())
-  {
-    points_velocities.first.push_back(bead.center);
-    points_velocities.second.emplace_back(dim, 0.);
-  }
+  std::cout << "Setting up boundary conditions...\n";
+  Boundaries boundaries{ geometry, bead_pack };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up velocity field...\n";
-  VelocityField velocity_field{ points_velocities.first, points_velocities.second };
-  std::cout << "\tDone!\n";
-  
-  std::cout << "Cleaning up memory...\n";
-  decltype(points_velocities.first)().swap(points_velocities.first);
-  decltype(points_velocities.second)().swap(points_velocities.second);
-  decltype(contacts)().swap(contacts);
+  auto velocity_field =
+    make_velocity_field(input_dir, output_dir,
+                        geometry, bead_pack, boundaries.boundary_periodic);
   std::cout << "\tDone!\n";
   
   std::cout << "Importing mean velocity...\n";
-  std::vector<double> mean_velocity;
-  try
-  {
-    std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
-    mean_velocity = beadpack::get_mean_velocity<std::vector<double>>(dim, mean_velocity_filename);
-  }
-  catch (std::runtime_error& err)
-  {
-    std::cout << "\tFile not available. Computing...\n";
-    std::size_t nr_samples = 1e4;
-    mean_velocity = bead_pack.compute_mean_vector(velocity_field, boundaries, nr_samples);
-    std::string mean_velocity_filename = output_dir + "/" + "mean_velocity.dat";
-    std::ofstream output{ mean_velocity_filename };
-    if (!output.is_open())
-      throw useful::open_write_error(mean_velocity_filename);
-    output << std::setprecision(8)
-           << std::scientific;
-    useful::print(output, mean_velocity);
-    output << "\n";
-    std::cout << "\t\tDone!\n";
-  }
+  std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
+  std::vector<double> mean_velocity
+    = beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
   double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up particles...\n";
-  double advection_time = domain_side/magnitude_mean_velocity;
-  double diff = domain_side*magnitude_mean_velocity/peclet;
-  double diffusion_time = domain_side*domain_side/(2.*diff);
+  double advection_time = geometry.domain_side/magnitude_mean_velocity;
+  double diff = geometry.domain_side*magnitude_mean_velocity/peclet;
+  double diffusion_time = geometry.domain_side*geometry.domain_side/(2.*diff);
   double time_step = std::min(time_step_accuracy_adv*advection_time,
     time_step_accuracy_diff*diffusion_time);
   double length_discretization = 10.*std::sqrt(2.*diff*time_step);
@@ -189,17 +128,15 @@ int main(int argc, const char * argv[])
   auto near_wall = [length_discretization, &bead_pack](State const& state)
   { return bead_pack.near(state.position, length_discretization).first; };
   
-  Boundary_Periodic boundary_periodic{ boundaries };
-  Boundary boundary{ bead_pack, boundary_periodic };
-  
-  auto state_maker = []()
-  { return State{ std::vector<double>(dim, 0.), std::vector<int>(dim, 0) }; };
+  auto state_maker = [&geometry]()
+  { return State{ std::vector<double>(geometry.dim),
+    std::vector<int>(geometry.dim) }; };
   
   std::vector<double> domain_midpoint;
-  for (auto const& boundary : boundaries)
+  for (auto const& boundary : geometry.boundaries)
     domain_midpoint.push_back((boundary.first+boundary.second)/2.);
-  std::vector<std::pair<double, double>> initial_box_centered = boundaries;
-  for (std::size_t dd = 0; dd < dim; ++dd)
+  auto initial_box_centered = geometry.boundaries;
+  for (std::size_t dd = 0; dd < geometry.dim; ++dd)
   {
     initial_box_centered[dd].first -= domain_midpoint[dd];
     initial_box_centered[dd].first *= initial_condition_size_domains;
@@ -214,7 +151,7 @@ int main(int argc, const char * argv[])
       nr_measures, initial_condition_type,
       domain_midpoint, initial_box_centered,
       velocity_field, mean_velocity,
-      bead_pack, boundary_periodic,
+      bead_pack, boundaries.boundary_periodic,
       2.*length_discretization,
       filename_input_positions,
       state_maker);
@@ -224,8 +161,7 @@ int main(int argc, const char * argv[])
   
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
-  stream << domain_side << "_"
-         << initial_condition_size_domains << "_"
+  stream << initial_condition_size_domains << "_"
          << peclet << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
@@ -243,8 +179,10 @@ int main(int argc, const char * argv[])
     filename_output_base + "_space_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";
   
-  auto getter_position_longitudinal = ctrw::Get_position_periodic_projection{
-    domain_dimensions, mean_velocity };
+  auto getter_position_longitudinal = ctrw::Get_projection{
+    ctrw::Get_position_periodic{
+    boundaries.boundary_periodic
+    }, mean_velocity };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up dynamics...\n";
@@ -254,15 +192,15 @@ int main(int argc, const char * argv[])
           velocity_field,
           time_step,
           1,
-          boundary
+          boundaries.boundary_reflecting_periodic
         },
         JumpGenerator_Diffusion{
           diff,
           time_step,
-          dim
+          geometry.dim
         }
       },
-      boundary
+      boundaries.boundary_reflecting_periodic
   };
   std::cout << "\tDone!\n";
   
@@ -335,12 +273,12 @@ int main(int argc, const char * argv[])
         
         if (initial_condition_type == 4)
         {
-          std::cout << "Mean fpt * domain_side/length_discretization = "
+          std::cout << "Mean fpt * geometry.domain_side/length_discretization = "
                     << mean_fpt/nr_measures
-                       *domain_side/length_discretization << "\n";
-          std::cout << "Mean fpd * domain_side/length_discretization = "
+                       *geometry.domain_side/length_discretization << "\n";
+          std::cout << "Mean fpd * geometry.domain_side/length_discretization = "
                     << mean_fpd/nr_measures
-                       *domain_side/length_discretization << "\n";
+                       *geometry.domain_side/length_discretization << "\n";
         }
       }
       

@@ -345,7 +345,7 @@ namespace ctrw
     
     // Get the maximum allowed particles in a strip
     std::size_t maximum_size(std::size_t ss) const
-    { return strips[ss].maximum_size; }
+    { return strips[ss].maximum_size(); }
     
     // Check if strip has maximum allowed particles
     bool full(std::size_t ss) const

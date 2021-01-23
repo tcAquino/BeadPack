@@ -13,37 +13,37 @@ LFLAGS = -lgmp
 all : BeadPack BeadPack_Reactive BeadPack_Fp BeadPack_Return BeadPack_Strips BeadPack_ReactionMap BeadPack_Statistics
 
 BeadPack : BeadPack.o
-	$(CC) $(CFLAGS) $(LIB) $(LFLAGS) -o BeadPack BeadPack.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack BeadPack.o $(LFLAGS)
 	rm BeadPack.o
 	mv BeadPack $(PTHBIN)/BeadPack
 
 BeadPack_Reactive : BeadPack_Reactive.o
-	$(CC) $(CFLAGS) $(LIB) $(LFLAGS) -o BeadPack_Reactive BeadPack_Reactive.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Reactive BeadPack_Reactive.o $(LFLAGS)
 	rm BeadPack_Reactive.o
 	mv BeadPack_Reactive $(PTHBIN)/BeadPack_Reactive
 
 BeadPack_Fp : BeadPack_Fp.o
-	$(CC) $(CFLAGS) $(LIB) $(LFLAGS) -o BeadPack_Fp BeadPack_Fp.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Fp BeadPack_Fp.o $(LFLAGS)
 	rm BeadPack_Fp.o
 	mv BeadPack_Fp $(PTHBIN)/BeadPack_Fp
 
 BeadPack_Return : BeadPack_Return.o
-	$(CC) $(CFLAGS) $(LIB) $(LFLAGS) -o BeadPack_Return BeadPack_Return.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Return BeadPack_Return.o $(LFLAGS)
 	rm BeadPack_Return.o
 	mv BeadPack_Return $(PTHBIN)/BeadPack_Return
 
 BeadPack_Strips : BeadPack_Strips.o
-	$(CC) $(CFLAGS) $(LIB) $(LFLAGS) -o BeadPack_Strips BeadPack_Strips.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Strips BeadPack_Strips.o $(LFLAGS)
 	rm BeadPack_Strips.o
 	mv BeadPack_Strips $(PTHBIN)/BeadPack_Strips
 
 BeadPack_ReactionMap : BeadPack_ReactionMap.o
-	$(CC) $(CFLAGS) $(LIB) $(LFLAGS) -o BeadPack_ReactionMap BeadPack_ReactionMap.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_ReactionMap BeadPack_ReactionMap.o $(LFLAGS)
 	rm BeadPack_ReactionMap.o
 	mv BeadPack_ReactionMap $(PTHBIN)/BeadPack_ReactionMap
 
 BeadPack_Statistics : BeadPack_Statistics.o
-	$(CC) $(CFLAGS) $(LIB) $(LFLAGS) -o BeadPack_Statistics BeadPack_Statistics.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Statistics BeadPack_Statistics.o $(LFLAGS)
 	rm BeadPack_Statistics.o
 	mv BeadPack_Statistics $(PTHBIN)/BeadPack_Statistics
 

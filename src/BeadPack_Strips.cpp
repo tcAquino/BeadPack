@@ -10,15 +10,12 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <utility>
 #include <vector>
-#include "BeadPack/BeadPack.h"
-#include "BeadPack/BeadPack_InitialConditions.h"
-#include "BeadPack/BeadPack_Input.h"
+#include "BeadPack/BeadPack_Models.h"
 #include "Field/VectorField_Interpolated.h"
 #include "general/Operations.h"
 #include "general/Ranges.h"
-#include "Stochastic/CTRW/Boundary.h"
+#include "general/useful.h"
 #include "Stochastic/CTRW/CTRW.h"
 #include "Stochastic/CTRW/JumpGenerator.h"
 #include "Stochastic/CTRW/Measurer.h"
@@ -30,6 +27,8 @@
 
 int main(int argc, const char * argv[])
 {
+  using namespace model_beadpack_cartesian_cubic;
+  
   if (argc == 1)
   {
     std::cout << "Track particle strips for\n"
@@ -37,7 +36,6 @@ int main(int argc, const char * argv[])
               << "with periodic boundary conditions on a cubic domain.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"
-              << "domain_side : Length of domain side or periodic unit cell\n"
               << "nr_strips : Number of strips to track\n"
               << "max_particles_strip : Maximum number of particles per strip\n"
               << "initial_strip_segment_length_factor : Initial strip length in units of domain sides\n"
@@ -59,26 +57,17 @@ int main(int argc, const char * argv[])
     return 0;
   }
   
-  if (argc != 12 && argc != 13 && argc != 14)
-  {
+  if (argc < 11)
     throw std::runtime_error{ "Inappropriate parameters." };
-  }
-  
-  const std::size_t dim = 3;
-  
-  using BeadPack = beadpack::BeadPack<dim>;
-  using Bead = BeadPack::Bead;
-  using VelocityField = field::VectorField_LinearInterpolation_UnstructuredGrid<dim>;
-  
-  using Boundary_Periodic = boundary::Periodic_WithOutsideInfo;
-  using Boundary = boundary::ReflectingBeads_Periodic<BeadPack, Boundary_Periodic>;
   
   using State = ctrw::State_periodic<std::vector<double>,
     std::vector<int>, useful::Empty, useful::Empty, std::size_t>;
   using CTRW = ctrw::CTRW<State>;
+  using Boundary = Boundaries::Boundary_Reflecting_Periodic;
+  using JumpGenerator =
+    ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
   
   std::size_t arg = 1;
-  double domain_side = atof(argv[arg++]);
   std::size_t nr_strips = strtoul(argv[arg++], NULL, 0);
   std::size_t max_particles_strip = strtoul(argv[arg++], NULL, 0);
   double initial_strip_segment_length_factor = atof(argv[arg++]);
@@ -94,102 +83,53 @@ int main(int argc, const char * argv[])
   
   std::string input_dir = input_dir_base + "/" + data_set;
   std::cout << std::scientific << std::setprecision(2);
-    
-  std::vector<std::pair<double, double>> boundaries;
-  boundaries.reserve(dim);
-  for (std::size_t dd = 0; dd < dim; ++dd)
-    boundaries.push_back({ 0., domain_side });
-  std::vector<double> domain_dimensions(dim, domain_side);
   
-  std::cout << "Importing beads...\n";
-  std::string bead_filename = input_dir + "/" + "spheres.dat";
-  BeadPack bead_pack{ beadpack::get_beads<Bead>(dim, bead_filename, 1, domain_side) };
+  Geometry geometry{};
+  
+  std::cout << "Making bead pack...\n";
+  BeadPack bead_pack = make_bead_pack(input_dir, geometry);
   std::cout << "\tDone!\n";
   
-  std::cout << "Importing contacts...\n";
-  std::string contact_filename = input_dir + "/" + "contacts.dat";
-  auto contacts = beadpack::get_contacts<std::vector<double>>(dim, contact_filename, 1, domain_side);
-  std::cout << "\tDone!\n";
-  
-  std::cout << "Importing grid points and velocities...\n";
-  std::string velocity_filename = input_dir + "/" + "velocities.csv";
-  auto points_velocities = beadpack::get_points_velocities_velocity_point<
-    std::vector<double>,
-    std::vector<double>>(dim, velocity_filename, 1);
-  std::cout << "\tDone!\n";
-  
-  std::cout << "Adding zero velocity grid points at bead contacts and centers...\n";
-  for (auto const& point : contacts)
-  {
-    points_velocities.first.push_back(point);
-    points_velocities.second.emplace_back(dim, 0.);
-  }
-  for (auto const& bead : bead_pack.beads())
-  {
-    points_velocities.first.push_back(bead.center);
-    points_velocities.second.emplace_back(dim, 0.);
-  }
+  std::cout << "Setting up boundary conditions...\n";
+  Boundaries boundaries{ geometry, bead_pack };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up velocity field...\n";
-  VelocityField velocity_field{ points_velocities.first, points_velocities.second };
-  std::cout << "\tDone!\n";
-  
-  std::cout << "Cleaning up memory...\n";
-  decltype(points_velocities.first)().swap(points_velocities.first);
-  decltype(points_velocities.second)().swap(points_velocities.second);
-  decltype(contacts)().swap(contacts);
+  auto velocity_field =
+    make_velocity_field(input_dir, output_dir,
+                        geometry, bead_pack, boundaries.boundary_periodic);
   std::cout << "\tDone!\n";
   
   std::cout << "Importing mean velocity...\n";
-  std::vector<double> mean_velocity;
-  try
-  {
-    std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
-    mean_velocity = beadpack::get_mean_velocity<std::vector<double>>(dim, mean_velocity_filename);
-  }
-  catch (std::runtime_error& err)
-  {
-    std::cout << "\tFile not available. Computing...\n";
-    std::size_t nr_samples = 1e4;
-    mean_velocity = bead_pack.compute_mean_vector(velocity_field, boundaries, nr_samples);
-    std::string mean_velocity_filename = output_dir + "/" + "mean_velocity.dat";
-    std::ofstream output{ mean_velocity_filename };
-    if (!output.is_open())
-      throw useful::open_write_error(mean_velocity_filename);
-    output << std::setprecision(8)
-           << std::scientific;
-    useful::print(output, mean_velocity);
-    output << "\n";
-    std::cout << "\t\tDone!\n";
-  }
+  std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
+  std::vector<double> mean_velocity
+    = beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
   double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up particles...\n";
-  double initial_strip_segment_length = initial_strip_segment_length_factor*domain_side;
-  double advection_time = domain_side/magnitude_mean_velocity;
+  double initial_strip_segment_length = initial_strip_segment_length_factor*geometry.domain_side;
+  double advection_time = geometry.domain_side/magnitude_mean_velocity;
   double time_step = time_step_accuracy_adv*advection_time;
   std::size_t max_particles = max_particles_strip*nr_strips;
   std::size_t particles_strip = 2;
-  double max_distance_strip = 1e-2*domain_side;
-  Boundary_Periodic boundary_periodic{ boundaries };
-  Boundary boundary{ bead_pack, boundary_periodic };
-  auto adjust = [&bead_pack, &boundary_periodic](State& state)
-  { bead_pack.place_at_closest_surface_if_inside(state, boundary_periodic); };
-  auto state_maker = []()
-  { return State{ std::vector<double>(dim, 0.), std::vector<int>(dim, 0) }; };
+  double max_distance_strip = 1e-2*geometry.domain_side;
+  auto adjust = [&bead_pack, &boundaries](State& state)
+  { bead_pack.place_at_closest_surface_if_inside(state, boundaries.boundary_periodic); };
+  auto state_maker = [&geometry]()
+  { return State{ std::vector<double>(geometry.dim),
+    std::vector<int>(geometry.dim) }; };
   CTRW ctrw{};
   ctrw::StripHandler strips{
     ctrw,
-    ctrw::Get_new_from_particle<ctrw::Get_position_periodic>{ domain_dimensions },
+    ctrw::Get_new_from_particle{ ctrw::Get_position_periodic{ boundaries.boundary_periodic } },
     adjust,
     state_maker };
   beadpack::make_strips_random_uniform_box(nr_strips,
                                            particles_strip, max_particles_strip,
                                            initial_strip_segment_length,
                                            max_distance_strip,
-                                           bead_pack, boundary_periodic, boundaries,
+                                           bead_pack, boundaries.boundary_periodic, geometry.boundaries,
                                            ctrw, strips);
   std::cout << "\tDone!\n";
   
@@ -213,8 +153,7 @@ int main(int argc, const char * argv[])
   
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
-  stream << domain_side << "_"
-         << nr_strips << "_"
+  stream << nr_strips << "_"
          << max_particles_strip << "_"
          << initial_strip_segment_length_factor << "_"
          << time_step_accuracy_adv << "_"
@@ -235,18 +174,19 @@ int main(int argc, const char * argv[])
     + filename_output_strips_base + "_" + data_set + "_" + params + ".dat";
   ctrw::Measurer_Collection measurer_strips{ filename_output_strips };
   
-  using Get_position = ctrw::Get_new_from_particle<ctrw::Get_position_periodic>;
+  auto getter_position = ctrw::Get_new_from_particle{
+    ctrw::Get_position_periodic{ boundaries.boundary_periodic } };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up dynamics...\n";
   ctrw::Transitions_Position transitions{
-    ctrw::JumpGenerator_Velocity_withHint_RK4{
+    JumpGenerator{
       velocity_field,
       time_step,
       max_particles,
-      boundary
+      boundaries.boundary_reflecting_periodic,
     },
-    boundary
+    boundaries.boundary_reflecting_periodic
   };
   ctrw::PTRW ptrw(ctrw, transitions, time_step, 0.);
   std::cout << "\tDone!\n";
@@ -259,13 +199,13 @@ int main(int argc, const char * argv[])
   
   if (measure_spacing == 2)
   {
-    measurer_positions(ptrw, Get_position{ domain_dimensions }, ptrw.time());
+    measurer_positions(ptrw, getter_position, ptrw.time());
     measurer_strips(strips, ptrw.time());
     while (ptrw.time() < time_max)
     {
       ptrw.step();
       strips.resize();
-      measurer_positions(ptrw, Get_position{ domain_dimensions }, ptrw.time());
+      measurer_positions(ptrw, getter_position, ptrw.time());
       measurer_strips(strips, ptrw.time());
       std::cout << "\ttime [adv times] = " << ptrw.time()/advection_time << "\t"
                 << "\ttime_max [adv times] = " << time_max/advection_time << "\n";
@@ -280,7 +220,7 @@ int main(int argc, const char * argv[])
         ptrw.step();
         strips.resize();
       }
-      measurer_positions(ptrw, Get_position{ domain_dimensions }, time);
+      measurer_positions(ptrw, getter_position, time);
       measurer_strips(strips, time);
       std::cout << "\ttime [adv times] = " << time/advection_time << "\t"
                 << "\ttime_max [adv times]  = " << time_max/advection_time << "\n";

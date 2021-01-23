@@ -197,12 +197,13 @@ namespace ctrw
   // from state.position and periodicity information
   // about the unit cell periodic position is in
   // Unit cell faces must be perpendicular to (cartesian) coordinate axes
-  struct Get_position_periodic
+  struct Get_position_periodic_cartesian
   {
     std::vector<double> domain_dimensions;
     
     // Construct given size of domain along each dimension
-    Get_position_periodic(std::vector<double> domain_dimensions)
+    Get_position_periodic_cartesian
+    (std::vector<double> domain_dimensions)
     : domain_dimensions{ domain_dimensions }
     {}
     
@@ -214,59 +215,110 @@ namespace ctrw
                                               state.periodicity));
     }
   };
-  
-  
+
   // Get dd component of absolute position given state
   // from state.position and periodicity information
   // about the unit cell periodic position is in
-  // Unit cell faces must be perpendicular to (cartesian) coordinate axes
+  // Unit cell faces must be perpendicular to cartesian coordinate axes
   template <std::size_t dd>
-  struct Get_position_periodic_component
+  struct Get_position_periodic_cartesian_component
   {
-    std::vector<double> domain_dimensions;
+    Get_position_periodic_cartesian get_position;
     
     // Construct given size of domain along each dimension
-    Get_position_periodic_component(std::vector<double> domain_dimensions)
-    : domain_dimensions{ domain_dimensions }
+    Get_position_periodic_cartesian_component(std::vector<double> domain_dimensions)
+    : get_position{ domain_dimensions }
     {}
     
     template <typename State>
     auto operator()(State const& state) const
     {
-      return operation::project<dd>(
-        operation::plus(state.position,
-                        operation::times(domain_dimensions,
-                                         state.periodicity)));
+      return operation::project<dd>(get_position(state));
     }
   };
   
   // Get projection of absolute position along a direction given state
   // from state.position and periodicity information
   // about the unit cell periodic position is in
-  // Unit cell faces must be perpendicular to (cartesian) coordinate axes
-  struct Get_position_periodic_projection
+  // Unit cell faces must be perpendicular to cartesian coordinate axes
+  struct Get_position_periodic_cartesian_projection
   {
-    std::vector<double> domain_dimensions;
-    std::vector<double> basis;
-    
     // Construct given size of domain along each dimension
     // and direction to project onto
-    Get_position_periodic_projection
+    Get_position_periodic_cartesian_projection
     (std::vector<double> domain_dimensions, std::vector<double> const& direction)
-    : domain_dimensions{ domain_dimensions }
-    , basis{ operation::div_scalar(direction, operation::abs(direction)) }
+    : get_position{ domain_dimensions }
+    , direction{ operation::div_scalar(direction, operation::abs(direction)) }
     {}
     
     template <typename State>
     auto operator()(State const& state) const
     {
-      return operation::dot(
-        operation::plus(state.position,
-                        operation::times(domain_dimensions,
-                                         state.periodicity)),
-        basis);
+      return operation::dot(get_position(state), direction);
     }
+    
+  private:
+    Get_position_periodic_cartesian get_position;
+    
+  public:
+    std::vector<double> direction;
   };
+  
+  // Get absolute position given state
+  // state must define:
+  //   position
+  //   periodicity : unit cell periodic position is in
+  // Boundary class must define translation method
+  // given a position
+  template <typename Boundary>
+  struct Get_position_periodic
+  {
+    // Construct given boundary class
+    Get_position_periodic(Boundary&& boundary)
+    : boundary{ std::forward<Boundary>(boundary) }
+    {}
+    
+    template <typename State>
+    auto operator()(State const& state) const
+    {
+      auto position = state.position;
+      boundary.translate(position, state.periodicity);
+      return position;
+    }
+    
+  private:
+    Boundary boundary;
+  };
+  template <typename Boundary>
+  Get_position_periodic(Boundary&&)
+  -> Get_position_periodic<Boundary>;
+  
+  // Get projection of result of Getter object
+  // along direction
+  template <typename Getter>
+  struct Get_projection
+  {
+    // Construct given Getter object and direction to project onto
+    Get_projection(Getter&& get, std::vector<double> const& direction)
+    : get{ std::forward<Getter>(get) }
+    , direction{ operation::div_scalar(direction, operation::abs(direction)) }
+    {}
+    
+    template <typename State>
+    auto operator()(State const& state) const
+    {
+      return operation::dot(get(state), direction);
+    }
+    
+  private:
+    Getter get;
+    
+  public:
+    std::vector<double> direction;
+  };
+  template <typename Getter>
+  Get_projection(Getter&&)
+  -> Get_projection<Getter>;
   
   // Get state.tag given state
   struct Get_tag
