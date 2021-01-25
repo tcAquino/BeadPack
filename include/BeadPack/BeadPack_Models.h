@@ -107,7 +107,7 @@ namespace model_bcc_symmetryplanes
     
     Geometry()
     : domain_dimensions(dim, domain_side)
-    , boundaries(dim, { 0., domain_side })
+    , boundaries(dim, { -domain_side/2., domain_side/2. })
     {}
   };
   
