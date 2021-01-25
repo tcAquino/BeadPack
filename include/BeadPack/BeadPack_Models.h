@@ -23,7 +23,7 @@
 #include "Geometry/SymmetryPlanes.h"
 #include "Stochastic/CTRW/Boundary.h"
 
-namespace model_beadpack_cartesian_cubic
+namespace model_bcc_cartesian
 {
   struct Geometry
   {
@@ -95,7 +95,7 @@ namespace model_beadpack_cartesian_cubic
   }
 }
 
-namespace model_beadpack_symmetry_planes
+namespace model_bcc_symmetryplanes
 {
   struct Geometry
   {
@@ -120,15 +120,16 @@ namespace model_beadpack_symmetry_planes
   (std::string const& input_dir, Geometry const& geometry)
   {
     std::string bead_filename = input_dir + "/" + "beads.dat";
-    return beadpack::get_beads_centers_diameter<Bead>(
-      geometry.dim, bead_filename, 0, 1e-3);
+    return beadpack::get_beads_centers_radius<Bead>(
+      geometry.dim, bead_filename, 0, 1e-3/2.);
   }
   
   struct Boundaries
   {
-    using Boundary_Periodic =
-      boundary::Periodic_SymmetryPlanes_WithOutsideInfo<geometry::SymmetryPlanes_Bcc>;
-    using Boundary = boundary::ReflectingBeads_Periodic<BeadPack, Boundary_Periodic>;
+    using Boundary_Periodic
+      = boundary::Periodic_SymmetryPlanes_WithOutsideInfo<geometry::SymmetryPlanes_Bcc>;
+    using Boundary_Reflecting_Periodic
+      = boundary::ReflectingBeads_Periodic<BeadPack, Boundary_Periodic>;
     
     Boundaries(Geometry const& geometry, BeadPack const& bead_pack)
     : boundary_periodic{ {}, geometry.radius }
@@ -136,7 +137,7 @@ namespace model_beadpack_symmetry_planes
     {}
     
     Boundary_Periodic boundary_periodic;
-    Boundary boundary_reflecting_periodic;
+    Boundary_Reflecting_Periodic boundary_reflecting_periodic;
   };
   
   VelocityField make_velocity_field

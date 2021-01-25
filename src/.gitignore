@@ -8,3 +8,5 @@
 !BeadPack_Strips.cpp
 !BeadPack.cpp
 !Makefile
+!make.sh
+!set_model.sh

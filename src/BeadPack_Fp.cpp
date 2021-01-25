@@ -28,7 +28,7 @@
 
 int main(int argc, const char * argv[])
 {
-  using namespace model_beadpack_cartesian_cubic;
+  using namespace model_bcc_cartesian;
   
   if (argc == 1)
   {

@@ -10,12 +10,12 @@ INC = -I$(PTH) -I$(PTHINC)
 CFLAGS = -Wall -std=c++17 $(OPT)
 LFLAGS = -lgmp
 
-all : BeadPack BeadPack_Reactive BeadPack_Fp BeadPack_Return BeadPack_Strips BeadPack_ReactionMap BeadPack_Statistics
+all : BeadPack_Conservative BeadPack_Reactive BeadPack_Fp BeadPack_Return BeadPack_Strips BeadPack_ReactionMap BeadPack_Statistics
 
-BeadPack : BeadPack.o
-	$(CC) $(CFLAGS) $(LIB) -o BeadPack BeadPack.o $(LFLAGS)
-	rm BeadPack.o
-	mv BeadPack $(PTHBIN)/BeadPack
+BeadPack_Conservative : BeadPack_Conservative.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Conservative BeadPack_Conservative.o $(LFLAGS)
+	rm BeadPack_Conservative.o
+	mv BeadPack_Conservative $(PTHBIN)/BeadPack_Conservative
 
 BeadPack_Reactive : BeadPack_Reactive.o
 	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Reactive BeadPack_Reactive.o $(LFLAGS)
@@ -47,7 +47,7 @@ BeadPack_Statistics : BeadPack_Statistics.o
 	rm BeadPack_Statistics.o
 	mv BeadPack_Statistics $(PTHBIN)/BeadPack_Statistics
 
-BeadPack.o : BeadPack.cpp
+BeadPack_Conservative.o : BeadPack_Conservative.cpp
 	$(CC) $(CFLAGS) $(INC) -c $<
 
 BeadPack_Reactive.o : BeadPack_Reactive.cpp
@@ -69,4 +69,4 @@ BeadPack_Statistics.o : BeadPack_Statistics.cpp
 	$(CC) $(CFLAGS) $(INC) -c $<
 
 clean :
-	rm -f BeadPack BeadPack_Reactive BeadPack_Fp BeadPack_Strips BeadPack_Return BeadPack_ReactionMap BeadPack_Statistics BeadPack.o BeadPack_Reactive.o BeadPack_Fp.o BeadPack_Strips.o BeadPack_Return.o BeadPack_ReactionMap.o BeadPack_Statistics.o
+	rm -f BeadPack_Conservative BeadPack_Reactive BeadPack_Fp BeadPack_Strips BeadPack_Return BeadPack_ReactionMap BeadPack_Statistics BeadPack_Conservative.o BeadPack_Reactive.o BeadPack_Fp.o BeadPack_Strips.o BeadPack_Return.o BeadPack_ReactionMap.o BeadPack_Statistics.o
