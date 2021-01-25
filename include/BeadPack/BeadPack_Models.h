@@ -120,8 +120,8 @@ namespace model_bcc_symmetryplanes
   (std::string const& input_dir, Geometry const& geometry)
   {
     std::string bead_filename = input_dir + "/" + "beads.dat";
-    return beadpack::get_beads_centers_radius<Bead>(
-      geometry.dim, bead_filename, 0, 1e-3/2.);
+    return beadpack::get_beads_centers_diameter<Bead>(
+      geometry.dim, bead_filename, 0, 1e-3);
   }
   
   struct Boundaries

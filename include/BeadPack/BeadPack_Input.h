@@ -57,6 +57,47 @@ namespace beadpack
     return beads;
   }
   
+  // Get bead positions and radii from file
+  // File columns are bead center position components, diameter
+  // (any further columns ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of center components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   rescale : Multiply centers and radii by this factor
+  //   nr_estimate : Estimate the number of beads for efficiency
+  //   delims : possible delimiter characters separating data
+  template <typename Bead>
+  std::vector<Bead> get_beads_centers_diameter
+  (std::size_t dim, std::string const& filename,
+   std::size_t header_lines = 0, double rescale = 1.,
+   std::size_t nr_estimate = 0, std::string const& delims = "\t,| ")
+  {
+    std::vector<Bead> beads;
+    beads.reserve(nr_estimate);
+    
+    std::ifstream file(filename);
+    if (!file.is_open())
+      throw useful::open_read_error(filename);
+    std::string line;
+    for (std::size_t ll = 0; ll < header_lines; ++ll)
+      getline(file, line);
+    
+    while (getline(file, line))
+    {
+      std::vector<std::string> split_line;
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      
+      beads.push_back({ typename Bead::Position(dim),
+        rescale*std::stod(split_line[dim])/2. });
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        beads.back().center[dd] = rescale*std::stod(split_line[dd]);
+    }
+    file.close();
+    
+    return beads;
+  }
+  
   // Get positions of contact points betweem beads from file
   // File columns are contact point position components (any further columns ignored)
   // Parameters:
