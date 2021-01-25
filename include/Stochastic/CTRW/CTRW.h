@@ -172,7 +172,7 @@ namespace ctrw
     {
       for (auto& part : particle_container)
         if (criterium(part))
-          part.Transition(transitions_particle);
+          part.transition(transitions_particle);
     }
 
     // Get reference to particle container
