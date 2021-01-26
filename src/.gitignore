@@ -6,7 +6,7 @@
 !BeadPack_Return.cpp
 !BeadPack_Statistics.cpp
 !BeadPack_Strips.cpp
-!BeadPack.cpp
+!BeadPack_Conservative.cpp
 !Makefile
 !make.sh
 !set_model.sh
