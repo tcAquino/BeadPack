@@ -132,7 +132,7 @@ namespace model_bcc_symmetryplanes
       = boundary::ReflectingBeads_Periodic<BeadPack, Boundary_Periodic>;
     
     Boundaries(Geometry const& geometry, BeadPack const& bead_pack)
-    : boundary_periodic{ {}, geometry.radius }
+    : boundary_periodic{ geometry.radius }
     , boundary_reflecting_periodic{ bead_pack, boundary_periodic }
     {}
     

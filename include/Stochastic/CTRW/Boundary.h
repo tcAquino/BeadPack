@@ -178,7 +178,7 @@ namespace boundary
       return true;
 		}
     
-    // Helper to translate position according to symmetry planes
+    // Translate position according to symmetry planes
     template <typename Position, typename Projections = std::vector<double>>
     void translate
     (Position& position, Projections projections) const
@@ -239,7 +239,7 @@ namespace boundary
       return true;
     }
     
-    // Helper to translate position according to symmetry planes
+    // Translate position according to symmetry planes
     template <typename Position, typename Projections = std::vector<double>>
     void translate
     (Position& position, Projections const& projections) const
@@ -742,7 +742,7 @@ namespace boundary
       return false;
     }
     
-    // Helper to translate position according to symmetry planes
+    // Translate position according to symmetry planes
     template <typename Position, typename Projections = std::vector<double>>
     void translate
     (Position& position, Projections const& projections) const
@@ -777,6 +777,16 @@ namespace boundary
       : origin }
     {}
     
+    // Construct given overall scale factor and coordinate origin
+    Periodic_SymmetryPlanes_WithOutsideInfo
+    (double scale = 1., std::vector<double> origin = {})
+    : symmetry_planes{}
+    , scale{ scale }
+    , origin{ origin.size() == 0.
+      ? std::vector<double>(symmetry_planes.dim, 0.)
+      : origin }
+    {}
+    
     // Check if position is out of bounds
     template <typename Position>
     bool outOfBounds(Position const& position) const
@@ -802,7 +812,7 @@ namespace boundary
       return 0;
     }
     
-    // Helper to translate position according to symmetry planes
+    // Translate position according to symmetry planes
     template <typename Position, typename Projections = std::vector<double>>
     void translate
     (Position& position, Projections const& projections) const

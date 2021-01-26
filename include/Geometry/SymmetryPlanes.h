@@ -25,19 +25,26 @@ namespace geometry
     // Construct given bead radius
     SymmetryPlanes_Bcc()
     : normal{
-        operation::times_scalar(1./std::sqrt(2.), std::vector<double>{ 0., 1., 1. }),
-        operation::times_scalar(1./std::sqrt(2.), std::vector<double>{ 1., 0., 1. }),
-        operation::times_scalar(1./std::sqrt(2.), std::vector<double>{ 1., 1., 0. })
+        operation::times_scalar(1./std::sqrt(2.),
+                                std::vector<double>{ 0., 1., 1. }),
+        operation::times_scalar(1./std::sqrt(2.),
+                                std::vector<double>{ 1., 0., 1. }),
+        operation::times_scalar(1./std::sqrt(2.),
+                                std::vector<double>{ 1., 1., 0. })
     }
     , translation{
-        operation::times_scalar(2./std::sqrt(3.), std::vector<double>{ -1., 1., 1. }),
-        operation::times_scalar(2./std::sqrt(3.), std::vector<double>{ 1., -1., 1. }),
-        operation::times_scalar(2./std::sqrt(3.), std::vector<double>{ 1., 1., -1. })
+        operation::times_scalar(2./std::sqrt(3.),
+                                std::vector<double>{ -1., 1., 1. }),
+        operation::times_scalar(2./std::sqrt(3.),
+                                std::vector<double>{ 1., -1., 1. }),
+        operation::times_scalar(2./std::sqrt(3.),
+                                std::vector<double>{ 1., 1., -1. })
     }
     {}
     
     static constexpr std::size_t dim{ 3 };
-    std::vector<double> length{ std::vector<double>(dim, std::sqrt(8./3.)) };
+    const std::vector<double> length{
+      std::vector<double>(dim, 4./std::sqrt(6.)) };
     const std::vector<std::vector<double>> normal;
     const std::vector<std::vector<double>> translation;
   };
@@ -60,7 +67,8 @@ namespace geometry
     {}
     
     static constexpr std::size_t dim{ 3 };
-    std::vector<double> length{ std::vector<double>(dim, 1.) };
+    const std::vector<double> length{
+      std::vector<double>(dim, 1.) };
     const std::vector<std::vector<double>> normal;
     const std::vector<std::vector<double>> translation;
   };
@@ -82,7 +90,8 @@ namespace geometry
     Position projections;
     projections.reserve(symmetry_planes.dim);
     for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
-      projections[dd] = project(position, symmetry_planes, dd, scale);
+      projections.push_back(project(position, symmetry_planes,
+                                    dd, scale));
     return projections;
   }
   
@@ -91,7 +100,8 @@ namespace geometry
   (Position const& position, SymmetryPlanes const& symmetry_planes,
    std::size_t dd, double scale, Position const& origin)
   {
-    return project(operation::minus(position, origin), symmetry_planes, dd, scale);
+    return project(operation::minus(position, origin),
+                   symmetry_planes, dd, scale);
   }
   
   template <typename Position, typename SymmetryPlanes>
@@ -99,7 +109,8 @@ namespace geometry
   (Position const& position, SymmetryPlanes const& symmetry_planes,
    double scale, Position const& origin)
   {
-    return project(operation::minus(position, origin), symmetry_planes, scale);
+    return project(operation::minus(position, origin),
+                   symmetry_planes, scale);
   }
   
   template <typename Position, typename SymmetryPlanes,
@@ -111,8 +122,8 @@ namespace geometry
   {
     for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
       operation::plus_InPlace(position,
-                               operation::times_scalar(scale*projections[dd],
-                                                       symmetry_planes.translation[dd]));
+        operation::times_scalar(scale*projections[dd],
+                                symmetry_planes.translation[dd]));
     
     return projections;
   }
@@ -126,8 +137,8 @@ namespace geometry
   {
     for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
       operation::minus_InPlace(position,
-                               operation::times_scalar(scale*projections[dd],
-                                                       symmetry_planes.translation[dd]));
+        operation::times_scalar(scale*projections[dd],
+                                symmetry_planes.translation[dd]));
     
     return projections;
   }
@@ -137,7 +148,11 @@ namespace geometry
   (Position& position, SymmetryPlanes const& symmetry_planes,
    double scale)
   {
-    auto projections = project(position, symmetry_planes, scale);
+    std::vector<int> projections;
+    projections.reserve(symmetry_planes.dim);
+    for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
+      projections.push_back(std::floor(project(position, symmetry_planes,
+                                               dd, scale)));
     translate_back(position, symmetry_planes, projections, scale);
 
     return projections;
@@ -148,7 +163,11 @@ namespace geometry
   (Position& position, SymmetryPlanes const& symmetry_planes,
    double scale, Position const& origin)
   {
-    auto projections = project(position, symmetry_planes, scale, origin);
+    std::vector<int> projections;
+    projections.reserve(symmetry_planes.dim);
+    for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
+      projections.push_back(std::floor(project(position, symmetry_planes,
+                                               dd, scale, origin)));
     translate_back(position, symmetry_planes, projections, scale);
 
     return projections;

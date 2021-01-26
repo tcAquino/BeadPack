@@ -169,7 +169,7 @@ namespace beadpack
       contacts.push_back(Point(dim));
       for (std::size_t dd = 0; dd < dim; ++dd)
         contacts.back()[dd] = rescale*
-          (std::stod(split_line[dd+dim])-std::stod(split_line[dd]));
+          (std::stod(split_line[dd+dim])+std::stod(split_line[dd]))/2.;
     }
     file.close();
     
