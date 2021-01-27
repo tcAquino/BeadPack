@@ -169,7 +169,7 @@ namespace beadpack
       contacts.push_back(Point(dim));
       for (std::size_t dd = 0; dd < dim; ++dd)
         contacts.back()[dd] = rescale*
-          (std::stod(split_line[dd+dim])+std::stod(split_line[dd]))/2.;
+          (std::stod(split_line[dim+dd])+std::stod(split_line[dd]))/2.;
     }
     file.close();
     
@@ -177,14 +177,14 @@ namespace beadpack
   }
   
   // Get velocity vectors (to interpolate) and corresponding positions from file
-  // File columns are contact velocity components, point position components (any further columns ignored)
+  // File columns are velocity components, point position components (any further columns ignored)
   // Parameters:
   //   dim : Spatial dimension (number of position components)
   //   filename : Name of file to be read
   //   header_lines : Number of lines to skip at top of file
   //   rescale_point : Multiply point positions by this factor
   //   rescale_velocities : Multiply velocity vectors by this factor
-  //   nr_estimate : Estimate the number of contacts for efficiency
+  //   nr_estimate : Estimate the number of points for efficiency
   template <typename Point = std::vector<double>,
   typename Vector = std::vector<double>>
   std::pair<std::vector<Point>, std::vector<Vector>>
@@ -213,7 +213,7 @@ namespace beadpack
       points_velocities.second.push_back(Vector(dim));
       for (std::size_t dd = 0; dd < dim; ++dd)
         points_velocities.first.back()[dd] =
-          rescale_points*std::stod(split_line[dd+dim]);
+          rescale_points*std::stod(split_line[dim+dd]);
       for (std::size_t dd = 0; dd < dim; ++dd)
         points_velocities.second.back()[dd] =
           rescale_velocities*std::stod(split_line[dd]);
@@ -224,8 +224,55 @@ namespace beadpack
   }
   
   // Get velocity vectors (to interpolate) and corresponding positions from file
+  // File columns are point position components, velocity components (any further columns ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of position components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   rescale_point : Multiply point positions by this factor
+  //   rescale_velocities : Multiply velocity vectors by this factor
+  //   nr_estimate : Estimate the number of points for efficiency
+  template <typename Point = std::vector<double>,
+  typename Vector = std::vector<double>>
+  std::pair<std::vector<Point>, std::vector<Vector>>
+  get_points_velocities_point_velocity
+  (std::size_t dim, std::string const& filename,
+   int header_lines = 0, double rescale_points = 1., double rescale_velocities = 1.,
+   std::size_t nr_estimate = 0, std::string const& delims = "\t,| ")
+  {
+    std::pair<std::vector<Point>, std::vector<Vector>> points_velocities;
+    points_velocities.first.reserve(nr_estimate);
+    points_velocities.second.reserve(nr_estimate);
+    
+    std::ifstream file(filename);
+    if (!file.is_open())
+      throw useful::open_read_error(filename);
+    std::string line;
+    for (std::size_t ll = 0; ll < header_lines; ++ll)
+      getline(file, line);
+    
+    while (getline(file, line))
+    {
+      std::vector<std::string> split_line;
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      
+      points_velocities.first.push_back(Point(dim));
+      points_velocities.second.push_back(Vector(dim));
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        points_velocities.first.back()[dd] =
+          rescale_points*std::stod(split_line[dd]);
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        points_velocities.second.back()[dd] =
+          rescale_velocities*std::stod(split_line[dim+dd]);
+    }
+    file.close();
+    
+    return points_velocities;
+  }
+  
+  // Get velocity vectors (to interpolate) and corresponding positions from file
   // File columns are:
-  // $x_1$ $x_2$ ... v_1 $\del_{x_1} v_1$ $\del_{x_2} v_1$ ... v_2 ...
+  // $x_1$ $x_2$ ... $v_1$ $\del_{x_1} v_1$ $\del_{x_2} v_1$ ... $v_2$ ...
   // (any further columns ignored)
   // Parameters:
   //   dim : Spatial dimension (number of position components)
@@ -233,7 +280,7 @@ namespace beadpack
   //   header_lines : Number of lines to skip at top of file
   //   rescale_point : Multiply point positions by this factor
   //   rescale_velocities : Multiply velocity vectors by this factor
-  //   nr_estimate : Estimate the number of contacts for efficiency
+  //   nr_estimate : Estimate the number of points for efficiency
   template <typename Point = std::vector<double>,
   typename Vector = std::vector<double>>
   std::pair<std::vector<Point>, std::vector<Vector>>
@@ -273,7 +320,7 @@ namespace beadpack
   
   // Get velocity vectors (to interpolate) and corresponding positions from file
   // File columns are:
-  // v_1 $\del_{x_1} v_1$ $\del_{x_2} v_1$ ... v_2 ... $x_1$ $x_2$ ...
+  // $v_1$ $\del_{x_1} v_1$ $\del_{x_2} v_1$ ... $v_2$ ... $x_1$ $x_2$ ...
   // (any further columns ignored)
   // Parameters:
   //   dim : Spatial dimension (number of position components)
@@ -281,7 +328,7 @@ namespace beadpack
   //   header_lines : Number of lines to skip at top of file
   //   rescale_point : Multiply point positions by this factor
   //   rescale_velocities : Multiply velocity vectors by this factor
-  //   nr_estimate : Estimate the number of contacts for efficiency
+  //   nr_estimate : Estimate the number of points for efficiency
   template <typename Point = std::vector<double>, typename Vector = std::vector<double>>
   std::pair<std::vector<Point>, std::vector<Vector>> get_points_velocities_velocity_gradient_point
   (std::size_t dim, std::string const& filename,
@@ -317,6 +364,98 @@ namespace beadpack
     return points_velocities;
   }
   
+  // Get velocity vectors (to interpolate) and corresponding positions from file
+  // File columns are:
+  // $v_1$ $v_2$ ... $\del_{x_1} v_1$ $\del_{x_2} v_1$ ... $\del_{x_1} v_2$ $\del_{x_2} v_2$ ... $x_1$ $x_2$ ...
+  // (any further columns ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of position components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   rescale_point : Multiply point positions by this factor
+  //   rescale_velocities : Multiply velocity vectors by this factor
+  //   nr_estimate : Estimate the number of points for efficiency
+  template <typename Point = std::vector<double>, typename Vector = std::vector<double>>
+  std::pair<std::vector<Point>, std::vector<Vector>> get_points_velocities_velocity_gradient_point_2
+  (std::size_t dim, std::string const& filename,
+   int header_lines = 0, double rescale_points = 1., double rescale_velocities = 1.,
+   std::size_t nr_estimate = 0, std::string const& delims = "\t,| ")
+  {
+    std::pair<std::vector<Point>, std::vector<Vector>> points_velocities;
+    points_velocities.first.reserve(nr_estimate);
+    points_velocities.second.reserve(nr_estimate);
+    
+    std::ifstream file(filename);
+    if (!file.is_open())
+      throw useful::open_read_error(filename);
+    std::string line;
+    for (std::size_t ll = 0; ll < header_lines; ++ll)
+      getline(file, line);
+    
+    while (getline(file, line))
+    {
+      std::vector<std::string> split_line;
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      
+      points_velocities.first.push_back(Point(dim));
+      points_velocities.second.push_back(Vector(dim));
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        points_velocities.first.back()[dd] =
+          rescale_points*std::stod(split_line[dim*(dim+1)+dd]);
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        points_velocities.second.back()[dd] = rescale_velocities*std::stod(split_line[dd]);
+    }
+    file.close();
+    
+    return points_velocities;
+  }
+  
+  // Get velocity vectors (to interpolate) and corresponding positions from file
+  // File columns are:
+  // $x_1$ $x_2$ ...$v_1$ $v_2$ ... $\del_{x_1} v_1$ $\del_{x_2} v_1$ ... $\del_{x_1} v_2$ $\del_{x_2} v_2$ ...
+  // (any further columns ignored)
+  // Parameters:
+  //   dim : Spatial dimension (number of position components)
+  //   filename : Name of file to be read
+  //   header_lines : Number of lines to skip at top of file
+  //   rescale_point : Multiply point positions by this factor
+  //   rescale_velocities : Multiply velocity vectors by this factor
+  //   nr_estimate : Estimate the number of points for efficiency
+  template <typename Point = std::vector<double>, typename Vector = std::vector<double>>
+  std::pair<std::vector<Point>, std::vector<Vector>> get_points_velocities_point_velocity_gradient_2
+  (std::size_t dim, std::string const& filename,
+   int header_lines = 0, double rescale_points = 1., double rescale_velocities = 1.,
+   std::size_t nr_estimate = 0, std::string const& delims = "\t,| ")
+  {
+    std::pair<std::vector<Point>, std::vector<Vector>> points_velocities;
+    points_velocities.first.reserve(nr_estimate);
+    points_velocities.second.reserve(nr_estimate);
+    
+    std::ifstream file(filename);
+    if (!file.is_open())
+      throw useful::open_read_error(filename);
+    std::string line;
+    for (std::size_t ll = 0; ll < header_lines; ++ll)
+      getline(file, line);
+    
+    while (getline(file, line))
+    {
+      std::vector<std::string> split_line;
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      
+      points_velocities.first.push_back(Point(dim));
+      points_velocities.second.push_back(Vector(dim));
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        points_velocities.first.back()[dd] =
+          rescale_points*std::stod(split_line[dd]);
+      for (std::size_t dd = 0; dd < dim; ++dd)
+        points_velocities.second.back()[dd] = rescale_velocities*std::stod(split_line[dim+dd]);
+    }
+    file.close();
+    
+    return points_velocities;
+  }
+  
   // Get mean velocity vector from file
   // First dim values in file (row major) are  mean velocity components
   // (any further values ignored)
@@ -324,7 +463,7 @@ namespace beadpack
   //   dim : Spatial dimension (number of position components)
   //   filename : Name of file to be read
   //   header_lines : Number of lines to skip at top of file
-  //   nr_estimate : Estimate the number of contacts for efficiency
+  //   nr_estimate : Estimate the number of points for efficiency
   template <typename Vector = std::vector<double>>
   Vector get_mean_velocity
   (std::size_t dim, std::string const& filename,

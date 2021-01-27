@@ -79,14 +79,18 @@ namespace model_bcc_cartesian
     std::string velocity_filename = input_dir + "/" + "velocities.dat";
     auto points_velocities = beadpack::get_points_velocities_velocity_point(
       geometry.dim, velocity_filename, 1);
-    
+
     for (auto const& point : contacts)
     {
+      useful::print(std::cout, point);
+      std::cout << "\n";
       points_velocities.first.push_back(point);
       points_velocities.second.emplace_back(geometry.dim, 0.);
     }
     for (auto const& bead : bead_pack.beads())
     {
+      useful::print(std::cout, bead.center);
+      std::cout << "\n";
       points_velocities.first.push_back(bead.center);
       points_velocities.second.emplace_back(geometry.dim, 0.);
     }
