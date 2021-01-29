@@ -8,7 +8,7 @@ PTHLIB = /usr/local/lib
 LIB = -L$(PTHLIB)
 INC = -I$(PTH) -I$(PTHINC)
 CFLAGS = -Wall -std=c++17 $(OPT)
-LFLAGS = -lgmp
+LFLAGS = -lgmp -lmpfr
 
 all : BeadPack_Conservative BeadPack_Reactive BeadPack_Fp BeadPack_Return BeadPack_Strips BeadPack_ReactionMap BeadPack_Statistics
 

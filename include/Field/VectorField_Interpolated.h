@@ -10,47 +10,57 @@
 #define VectorField_Interpolated_h
 
 #include <type_traits>
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Delaunay_triangulation_2.h>
 #include <CGAL/Delaunay_triangulation_3.h>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
+#include <CGAL/interpolation_functions.h>
 #include <CGAL/natural_neighbor_coordinates_2.h>
 #include <CGAL/natural_neighbor_coordinates_3.h>
-#include <CGAL/interpolation_functions.h>
 
 namespace field
 {
   // Template class for linear vector interpolation on unstructured grid
   // to be specialized for different dimensions
-  template <std::size_t dim, typename Value_type = std::vector<double>>
+  // If the exact parameter is 1, the interpolator uses
+  // exact (arbitrary-precision) constructions. This is slower, but necessary
+  // for some meshes. If it is 0 (default), inexact (double-precision) constructions are
+  // used, which is faster but may result in NaN interpolation values
+  // for some meshes
+  
+  template
+  <std::size_t dim, bool exact = 0, typename Value_type = std::vector<double>>
   class VectorField_LinearInterpolation_UnstructuredGrid;
   
   // Linear vector interpolation on unstructured grid in 3d
   // Uses CGAL library for
   // Delaunay triangulation and Sibson natural neighbor coordinates
   // Value_type is the type of the interpolated field values
-  template <typename Value_type>
-  class VectorField_LinearInterpolation_UnstructuredGrid<3, Value_type>
+  template <bool exact, typename Value_type>
+  class VectorField_LinearInterpolation_UnstructuredGrid<3, exact, Value_type>
   {
   private:
     // Types for interpolation, see CGAL library documentation
-    using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
+    using Kernel = typename std::conditional<exact,
+      CGAL::Exact_predicates_exact_constructions_kernel,
+      CGAL::Exact_predicates_inexact_constructions_kernel>::type;
     using Triangulation =
       CGAL::Delaunay_triangulation_3<Kernel, CGAL::Fast_location>;
-    using Cell_handle = Triangulation::Cell_handle;
-    using Coord_type = Kernel::FT;
-    using Vertex_handle = Triangulation::Vertex_handle;
+    using Cell_handle = typename Triangulation::Cell_handle;
+    using Coord_type = typename Kernel::FT;
+    using Vertex_handle = typename Triangulation::Vertex_handle;
     
   public:
-    const std::size_t dim = 3;  // Spatial dimension
+    static constexpr std::size_t dim = 3;  // Spatial dimension
     
-    using Hint = Cell_handle;         // Hint type to speed up locating a point
-    using Point = Kernel::Point_3;    // CGAL spatial point type
-    using Vector = Kernel::Vector_3;  // CGAL Field vector type
-    using value_type = Value_type;    // Type of the interpolated field values
+    using Hint = Cell_handle;                  // Hint type to speed up locating a point
+    using Point = typename Kernel::Point_3;    // CGAL spatial point type
+    using Vector = typename Kernel::Vector_3;  // CGAL Field vector type
+    using value_type = Value_type;             // Type of the interpolated field values
     
   private:
     // More types for interpolation, see CGAL library documentation
-    using Coord_map = std::map<Point, Vector, Kernel::Less_xyz_3>;
+    using Coord_map = std::map<Point, Vector, typename Kernel::Less_xyz_3>;
     using Value_access = CGAL::Data_access<Coord_map>;
     using Vertex_coordinate_vector =
       std::vector<std::pair<Vertex_handle, Coord_type>>;
@@ -123,15 +133,16 @@ namespace field
         coords_point.push_back(std::make_pair(val.first->point(), val.second));
       
       if constexpr(std::is_same<value_type, Vector>::value == true)
-        return CGAL::linear_interpolation(
+        return CGAL::to_double(CGAL::linear_interpolation(
           coords_point.begin(), coords_point.end(), norm,
-          Value_access(function_values));
+          Value_access(function_values)));
       else
       {
         auto val = CGAL::linear_interpolation(
           coords_point.begin(), coords_point.end(), norm,
           Value_access(function_values));
-        return value_type{ val[0], val[1], val[2] };
+        return value_type{
+          CGAL::to_double(val[0]), CGAL::to_double(val[1]), CGAL::to_double(val[2]) };
       }
     }
     
@@ -182,27 +193,29 @@ namespace field
   // Uses CGAL library for
   // Delaunay triangulation and natural neighbor coordinates
   // Type of the interpolated field values
-  template <typename Value_type>
-  class VectorField_LinearInterpolation_UnstructuredGrid<2, Value_type>
+  template <bool exact, typename Value_type>
+  class VectorField_LinearInterpolation_UnstructuredGrid<2, exact, Value_type>
   {
   private:
     // Types for interpolation, see CGAL library documentation
-    using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
+    using Kernel = typename std::conditional<exact,
+      CGAL::Exact_predicates_exact_constructions_kernel,
+      CGAL::Exact_predicates_inexact_constructions_kernel>::type;
     using Triangulation = CGAL::Delaunay_triangulation_2<Kernel>;
-    using Face_handle = Triangulation::Face_handle;
-    using Coord_type = Kernel::FT;
+    using Face_handle = typename Triangulation::Face_handle;
+    using Coord_type = typename Kernel::FT;
     
   public:
-    const std::size_t dim = 2;  // Spatial dimension
+    static constexpr std::size_t dim = 2;  // Spatial dimension
       
-    using Hint = Face_handle;         // Hint type to speed up locating a point
-    using Point = Kernel::Point_2;    // CGAL spatial point type
-    using Vector = Kernel::Vector_2;  // CGAL Field vector type
-    using value_type = Value_type;    // Type of the interpolated field values
+    using Hint = Face_handle;                  // Hint type to speed up locating a point
+    using Point = typename Kernel::Point_2;    // CGAL spatial point type
+    using Vector = typename Kernel::Vector_2;  // CGAL Field vector type
+    using value_type = Value_type;             // Type of the interpolated field values
     
   private:
     // More types for interpolation, see CGAL library documentation
-    using Coord_map = std::map<Point, Vector, Kernel::Less_xy_2>;
+    using Coord_map = std::map<Point, Vector, typename Kernel::Less_xy_2>;
     using Value_access = CGAL::Data_access<Coord_map>;
     using Point_coordinate_vector =
       std::vector<std::pair<Point, Coord_type>>;
@@ -266,15 +279,15 @@ namespace field
         triangulation, point, std::back_inserter(coords_point), hint).second;
       
       if constexpr(std::is_same<value_type, Vector>::value == true)
-        return CGAL::linear_interpolation(
+        return CGAL::to_double(CGAL::linear_interpolation(
           coords_point.begin(), coords_point.end(), norm,
-          Value_access(function_values));
+          Value_access(function_values)));
       else
       {
         auto val = CGAL::linear_interpolation(
           coords_point.begin(), coords_point.end(), norm,
           Value_access(function_values));
-        return value_type{ val[0], val[1] };
+        return value_type{ CGAL::to_double(val[0]), CGAL::to_double(val[1]) };
       }
     }
     

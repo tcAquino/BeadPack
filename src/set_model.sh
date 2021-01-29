@@ -13,7 +13,7 @@ then
 fi
 if [[ "$#" -eq 2 ]]
 then
-	sed -i'.bak' "s/.*using namespace model_.*/  using namespace model_$1;/" "BeadPack_$2.cpp"
+	sed -i'.bak' "s/.*using namespace beadpack::model_.*/  using namespace beadpack::model_$1;/" "BeadPack_$2.cpp"
 	rm *.bak
 	exit 0
 fi

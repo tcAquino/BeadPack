@@ -26,7 +26,7 @@
 
 int main(int argc, const char * argv[])
 {
-  using namespace model_bcc_cartesian;
+  using namespace beadpack::model_bcc_cartesian;
   
   if (argc == 1)
   {
@@ -72,6 +72,9 @@ int main(int argc, const char * argv[])
   using JumpGenerator =
     ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
   
+  std::cout << std::setprecision(2)
+            << std::scientific;
+  
   std::size_t arg = 1;
   std::size_t nr_samples = strtoul(argv[arg++], NULL, 0);
   int measure_type = atoi(argv[arg++]);
@@ -101,10 +104,9 @@ int main(int argc, const char * argv[])
   
   std::string input_dir = input_dir_base + "/" + data_set;
   
-  Geometry geometry{};
-  
   std::cout << "Making bead pack...\n";
-  BeadPack bead_pack = make_bead_pack(input_dir, geometry);
+  const BeadPack bead_pack = make_bead_pack(input_dir);
+  const Geometry geometry{ bead_pack.radius(0) };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up boundary conditions...\n";
@@ -114,7 +116,7 @@ int main(int argc, const char * argv[])
   std::cout << "Setting up velocity field...\n";
   auto velocity_field =
     make_velocity_field(input_dir, output_dir,
-                        geometry, bead_pack, boundaries.boundary_periodic);
+                        bead_pack, boundaries.boundary_periodic);
   std::cout << "\tDone!\n";
   
   auto state_maker = [&geometry]()
@@ -138,6 +140,7 @@ int main(int argc, const char * argv[])
     case 0:
     {
       std::cout << "Computing Eulerian mean velocity vector...\n";
+      
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::vector<double> mean_velocity(geometry.dim);
