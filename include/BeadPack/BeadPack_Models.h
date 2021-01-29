@@ -25,6 +25,7 @@
 
 namespace beadpack
 {
+  template <bool centered>
   struct Geometry_Bcc
   {
     static constexpr std::size_t dim{ 3 };
@@ -36,17 +37,21 @@ namespace beadpack
     Geometry_Bcc(double radius = 1.)
     : radius{ radius }
     , domain_dimensions(dim, domain_side)
-    , boundaries(dim, { -domain_side/2., domain_side/2. })
+    , boundaries{ centered
+      ? std::vector<std::pair<double, double>>(dim,
+        { -domain_side/2., domain_side/2. })
+      : std::vector<std::pair<double, double>>(dim,
+        { 0., domain_side }) }
     {}
   };
 
   namespace model_bcc_cartesian
   {
-    using Geometry = Geometry_Bcc;
+    using Geometry = Geometry_Bcc<0>;
     using BeadPack = beadpack::BeadPack<Geometry::dim>;
     using Bead = BeadPack::Bead;
     using VelocityField =
-      field::VectorField_LinearInterpolation_UnstructuredGrid<Geometry::dim, 0>;
+      field::VectorField_LinearInterpolation_UnstructuredGrid<Geometry::dim>;
     
     BeadPack make_bead_pack
     (std::string const& input_dir)
@@ -108,7 +113,7 @@ namespace beadpack
 
   namespace model_bcc_symmetryplanes
   {
-    using Geometry = Geometry_Bcc;
+    using Geometry = Geometry_Bcc<1>;
     
     using BeadPack = beadpack::BeadPack<Geometry::dim>;
     using Bead = BeadPack::Bead;
