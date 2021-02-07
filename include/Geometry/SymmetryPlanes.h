@@ -95,19 +95,19 @@ namespace geometry
     return projections;
   }
   
-  template <typename Position, typename SymmetryPlanes>
+  template <typename Position, typename SymmetryPlanes, typename Origin>
   auto project
   (Position const& position, SymmetryPlanes const& symmetry_planes,
-   std::size_t dd, double scale, Position const& origin)
+   std::size_t dd, double scale, Origin const& origin)
   {
     return project(operation::minus(position, origin),
                    symmetry_planes, dd, scale);
   }
   
-  template <typename Position, typename SymmetryPlanes>
+  template <typename Position, typename SymmetryPlanes, typename Origin>
   auto project
   (Position const& position, SymmetryPlanes const& symmetry_planes,
-   double scale, Position const& origin)
+   double scale, Origin const& origin)
   {
     return project(operation::minus(position, origin),
                    symmetry_planes, scale);
@@ -158,10 +158,10 @@ namespace geometry
     return projections;
   }
   
-  template <typename Position, typename SymmetryPlanes>
+  template <typename Position, typename SymmetryPlanes, typename Origin>
   auto place_in_unit_cell
   (Position& position, SymmetryPlanes const& symmetry_planes,
-   double scale, Position const& origin)
+   double scale, Origin const& origin)
   {
     std::vector<int> projections;
     projections.reserve(symmetry_planes.dim);

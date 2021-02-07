@@ -88,8 +88,7 @@ int main(int argc, const char * argv[])
   
   std::cout << "Setting up velocity field...\n";
   auto velocity_field =
-    make_velocity_field(input_dir, output_dir,
-                        bead_pack, boundaries.boundary_periodic);
+    make_velocity_field(input_dir, bead_pack, boundaries.boundary_periodic);
   std::cout << "\tDone!\n";
   
   std::cout << "Importing mean velocity...\n";

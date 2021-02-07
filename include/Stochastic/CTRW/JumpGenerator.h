@@ -103,14 +103,14 @@ namespace ctrw
     template <typename State>
     auto operator() (State const& state)
     {
-      return operation::times_scalar(dt, velocity(state));
+      return operation::times_scalar(dt, velocity_field(state.position));
     }
     
     // Get the velocity
     template <typename State>
     auto velocity(State const& state) const
     {
-      return velocity(state);
+      return velocity_field(state.position);
     }
     
   private:

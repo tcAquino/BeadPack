@@ -27,7 +27,6 @@ namespace field
   // for some meshes. If it is 0 (default), inexact (double-precision) constructions are
   // used, which is faster but may result in NaN interpolation values
   // for some meshes
-  
   template
   <std::size_t dim, bool exact = 0, typename Value_type = std::vector<double>>
   class VectorField_LinearInterpolation_UnstructuredGrid;

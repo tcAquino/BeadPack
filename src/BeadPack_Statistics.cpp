@@ -51,12 +51,14 @@ int main(int argc, const char * argv[])
               << "run_nr : Nonnegative integer identifier for output files\n"
               << "data_set : Path to input data folder relative to input_dir_base\n"
               << "           (and model name identifier for output files)\n"
-              << "(if measure_type >= 4) jump_size_domains : Jump size in units of domain side\n"
-              << "(if measure_type >= 4) measure_max : Maximum distance along\n"
+              << "(if measure_type >= 5) jump_size_domains : Jump size in units of domain side\n"
+              << "(if measure_type >= 5) velocity_cutoff : minimum velocity to discard trajectory\n"
+              << "                                         in units of mean velocity\n"
+              << "(if measure_type >= 5) measure_max : Maximum distance along\n"
               << "                                     streamlines in units of domain side\n"
                  "                                     or maximum time in units of\n"
               << "                                     advection time\n"
-              << "(if measure_type >= 6) nr_measures : Number of measurements along streamlines\n"
+              << "(if measure_type >= 7) nr_measures : Number of measurements along streamlines\n"
               << "input_dir_base : Path to look for input data [../input]\n"
               << "output_dir : Path folder to output to [../output]\n";
     return 0;
@@ -68,9 +70,6 @@ int main(int argc, const char * argv[])
   using State = ctrw::State_periodic<std::vector<double>,
     std::vector<int>, useful::Empty, double, std::size_t>;
   using CTRW = ctrw::CTRW<State>;
-  using Boundary = Boundaries::Boundary_Reflecting_Periodic;
-  using JumpGenerator =
-    ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
   
   std::cout << std::setprecision(2)
             << std::scientific;
@@ -83,18 +82,20 @@ int main(int argc, const char * argv[])
   
   double jump_size_domains = 0.;
   double measure_max = 0.;
+  double velocity_cutoff = 0.;
   if (measure_type >= 5)
   {
-    if (argc < 6)
+    if (argc < 7)
       throw useful::bad_parameters();
     jump_size_domains = atof(argv[arg++]);
+    velocity_cutoff = atof(argv[arg++]);
     measure_max = atof(argv[arg++]);
   }
   
   std::size_t nr_measures = 0;
   if (measure_type >= 7)
   {
-    if (argc < 7)
+    if (argc < 8)
       throw useful::bad_parameters();
     nr_measures = strtoul(argv[arg++], NULL, 0);
   }
@@ -115,10 +116,21 @@ int main(int argc, const char * argv[])
   
   std::cout << "Setting up velocity field...\n";
   auto velocity_field =
-    make_velocity_field(input_dir, output_dir,
-                        bead_pack, boundaries.boundary_periodic);
+    make_velocity_field(input_dir, bead_pack, boundaries.boundary_periodic);
   std::cout << "\tDone!\n";
-  
+
+  // Lightweigth objects for multiple statistics,
+  // not always needed but declared here to avoid repetition
+  double jump_size = jump_size_domains*geometry.domain_side;
+  ctrw::Transitions_Position_VelocityStep transitions{
+      jump_size,
+      ctrw::JumpGenerator_Velocity_withHint_RK4{
+        velocity_field,
+        0., 1,
+        boundaries.boundary_reflecting_periodic },
+      boundaries.boundary_reflecting_periodic
+  };
+
   auto state_maker = [&geometry]()
   { return State{
     std::vector<double>(geometry.dim),
@@ -134,24 +146,69 @@ int main(int argc, const char * argv[])
   auto getter_velocity_magnitude = [&getter_velocity]
   (CTRW::Particle const& particle)
   { return operation::abs(getter_velocity(particle)); };
+  auto getter_velocity_transitions = ctrw::Get_new_from_particle{
+    [&transitions](State const& state)
+    { return transitions.velocity(state); } };
+  auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
+    [&transitions](State const& state)
+    { return transitions.velocity(state); } };
+  auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
+  (CTRW::Particle const& particle)
+  { return operation::abs(getter_velocity_transitions(particle)); };
+  auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
+  (CTRW::Particle const& particle)
+  { return operation::abs(getter_velocity_old_transitions(particle)); };
   
+  // Note: The equals sign in <= is important for the == 0. case
+  auto discard_criterium =
+  [&getter_velocity_magnitude, &velocity_cutoff]
+  (CTRW::Particle const& part, double mean_velocity_magnitude = 0.)
+  {
+    return getter_velocity_magnitude(part) <= velocity_cutoff*mean_velocity_magnitude;
+  };
+  
+  std::stringstream stream_samples;
+  stream_samples << nr_samples << "_" << run_nr;
+  std::string params_samples = stream_samples.str();
+  
+  std::stringstream stream_lagrangian_no_measures;
+  stream_lagrangian_no_measures << std::scientific << std::setprecision(2);
+  stream_lagrangian_no_measures << jump_size_domains << "_"
+                                << velocity_cutoff << "_"
+                                << measure_max << "_"
+                                << nr_samples << "_"
+                                << run_nr;
+  std::string params_lagrangian_no_measures = stream_lagrangian_no_measures.str();
+  
+  std::stringstream stream_lagrangian_measures;
+  stream_lagrangian_measures << std::scientific << std::setprecision(2);
+  stream_lagrangian_measures << jump_size_domains << "_"
+                             << velocity_cutoff << "_"
+                             << measure_max << "_"
+                             << nr_measures << "_"
+                             << nr_samples << "_"
+                             << run_nr;
+  std::string params_lagrangian_measures = stream_lagrangian_measures.str();
+  
+  // Choose statistics to compute
   switch (measure_type)
   {
     case 0:
     {
       std::cout << "Computing Eulerian mean velocity vector...\n";
       
+      std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
+      std::cout << "\t\tDone!\n";
+      
       std::vector<double> mean_velocity(geometry.dim);
       for (auto const& part : particles)
         operation::plus_InPlace(mean_velocity, getter_velocity(part));
       operation::div_scalar_InPlace(mean_velocity, particles.size());
       
-      std::stringstream stream_measures;
-      stream_measures << nr_samples;
       std::string mean_velocity_filename = output_dir + "/" + "mean_velocity"
-        + "_" + data_set + "_" + stream_measures.str() + ".dat";
+        + "_" + data_set + "_" + params_samples + ".dat";
       std::ofstream output{ mean_velocity_filename };
       if (!output.is_open())
         throw useful::open_write_error(mean_velocity_filename);
@@ -166,17 +223,19 @@ int main(int argc, const char * argv[])
     case 1:
     {
       std::cout << "Computing Eulerian mean velocity magnitude...\n";
+      
+      std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
+      std::cout << "\t\tDone!\n";
+      
       double mean_velocity_magnitude = 0.;
       for (auto const& part : particles)
         mean_velocity_magnitude += getter_velocity_magnitude(part);
       mean_velocity_magnitude /= particles.size();
-      std::stringstream stream_measures;
-      stream_measures << nr_samples << "_" << run_nr;
       std::string mean_velocity_magnitude_filename = output_dir + "/"
         + "mean_velocity_magnitude" + "_"
-        + data_set + "_" + stream_measures.str() + ".dat";
+        + data_set + "_" + params_samples + ".dat";
       std::ofstream output{ mean_velocity_magnitude_filename };
       if (!output.is_open())
         throw useful::open_write_error(mean_velocity_magnitude_filename);
@@ -191,10 +250,8 @@ int main(int argc, const char * argv[])
     {
       std::cout << "Computing porosity...\n";
       double porosity = bead_pack.compute_porosity(geometry.boundaries, nr_samples);
-      std::stringstream stream_measures;
-      stream_measures << nr_samples << "_" << run_nr;
       std::string filename = output_dir + "/" + "porosity" + "_" + data_set + "_"
-        + stream_measures.str() + ".dat";
+        + params_samples + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
@@ -213,30 +270,34 @@ int main(int argc, const char * argv[])
       std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
       std::vector<double> mean_velocity =
         beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
-      std::ifstream input{ mean_velocity_filename };
-      std::string mean_velocity_magnitude_filename = output_dir + "/"
-        + "mean_velocity_magnitude.dat";
+      std::cout << "\t\tDone!\n";
+      
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
       if (!input.is_open())
         throw useful::open_read_error(mean_velocity_magnitude_filename);
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
       std::cout << "\t\tDone!\n";
       
-      auto getter_velocity_downstream = ctrw::Get_old_from_particle{
-        ctrw::Get_projection{
-          ctrw::Get_position_property{ velocity_field },
-          mean_velocity } };
+      std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
+      std::cout << "\t\tDone!\n";
+      
+      auto getter_velocity_downstream = ctrw::Get_old_from_particle{
+         ctrw::Get_projection{
+           ctrw::Get_position_property{ velocity_field },
+           mean_velocity } };
+      
       double mean_velocity_downstream = 0.;
       for (auto const& part : particles)
         mean_velocity_downstream += getter_velocity_downstream(part);
       mean_velocity_downstream /= particles.size();
       double tortuosity = mean_velocity_magnitude/mean_velocity_downstream;
-      std::stringstream stream_measures;
-      stream_measures << nr_samples << "_" << run_nr;
       std::string filename = output_dir + "/" + "tortuosity"
-        + "_" + data_set + "_" + stream_measures.str() + ".dat";
+        + "_" + data_set + "_" + params_samples + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
@@ -251,14 +312,14 @@ int main(int argc, const char * argv[])
     {
       std::cout << "Computing Eulerian velocity magnitude samples...\n";
 
+      std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<ctrw::Particle<State>>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
-     
-      std::stringstream stream_measures;
-      stream_measures << nr_samples << "_" << run_nr;
+      std::cout << "\t\tDone!\n";
+
       std::string filename = output_dir + "/"
         + "velocity_magnitude_samples_uniform_unit_cell"
-        + "_" + data_set + "_" + stream_measures.str() + ".dat";
+        + "_" + data_set + "_" + params_samples + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
@@ -282,45 +343,29 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      double jump_size = jump_size_domains*geometry.domain_side;
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
+      
       double distance_max = measure_max*geometry.domain_side;
       
       std::vector<double> velocity_mean(particles.size());
-      std::size_t discarded = 0;
+      std::size_t surviving_trajectories = nr_samples;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         double distance_traveled = 0.;
         while (distance_traveled < distance_max)
         {
-          double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-          if (velocity_magnitude == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
             break;
           ctrw.step(transitions);
           double distance_increment = operation::abs(operation::minus(getter_position(part),
@@ -328,29 +373,25 @@ int main(int argc, const char * argv[])
           distance_traveled += distance_increment;
           velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*distance_increment;
         }
-        if (getter_velocity_magnitude(part) == 0.)
-          ++discarded;
+        if (discard_criterium(part, mean_velocity_magnitude))
+          --surviving_trajectories;
         if (distance_traveled != 0.)
           velocity_mean[pp] /= distance_traveled;
       }
-      std::cout << "\t" << discarded
-                << " trajectories discarded due to zero velocity\n";
+      std::cout << "\t" << nr_samples - surviving_trajectories
+                << " trajectories discarded\n";
       
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_samples << "_"
-             << run_nr;
+      
       std::string filename = output_dir + "/"
         + "velocity_magnitude_mean_space_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_no_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
       useful::print(output, velocity_mean);
+      output << "\t" << surviving_trajectories;
       output << "\n";
       output.close();
       std::cout << "\tDone!\n";
@@ -366,12 +407,20 @@ int main(int argc, const char * argv[])
         beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
       std::cout << "\t\tDone!\n";
       
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
+      
       std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      double jump_size = jump_size_domains*geometry.domain_side;
       double time_max = measure_max*geometry.domain_side/operation::abs(mean_velocity);
       
       std::vector<double> velocity_mean(particles.size());
@@ -380,62 +429,33 @@ int main(int argc, const char * argv[])
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         while (part.state_new().time < time_max)
         {
-          double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-          if (velocity_magnitude == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
             break;
           ctrw.step(transitions);
           velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*transitions.time_step();
         }
-        if (getter_velocity_magnitude_transitions(part) == 0.)
+        if (discard_criterium(part, mean_velocity_magnitude))
           --surviving_trajectories;
         if (velocity_mean[pp] != 0.)
           velocity_mean[pp] /= std::min(time_max, part.state_new().time);
       }
-      std::cout << "\t"<< nr_samples - surviving_trajectories
-                << " trajectories discarded due to zero velocity\n";
+      std::cout << "\t" << nr_samples - surviving_trajectories
+                << " trajectories discarded\n";
       
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_samples << "_"
-             << run_nr;
       std::string filename = output_dir + "/"
         + "velocity_magnitude_mean_time_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_no_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
       useful::print(output, velocity_mean);
+      output << "\t" << surviving_trajectories;
       output << "\n";
       output.close();
       std::cout << "\tDone!\n";
@@ -452,7 +472,14 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      double jump_size = jump_size_domains*geometry.domain_side;
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
       
       std::vector<double> velocity_autocorrelation(distances.size());
       std::vector<std::size_t> surviving_trajectories(distances.size(), nr_samples);
@@ -460,29 +487,6 @@ int main(int argc, const char * argv[])
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         double initial_velocity = getter_velocity_magnitude_transitions(part);
@@ -491,48 +495,39 @@ int main(int argc, const char * argv[])
         {
           while (distance_traveled < distances[ss])
           {
-            double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-            if (velocity_magnitude == 0.)
+            if (discard_criterium(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
             distance_traveled +=
               operation::abs(operation::minus(getter_position(part),
                                               getter_position_old(part)));
           }
-          velocity_autocorrelation[ss] +=
-            initial_velocity*getter_velocity_magnitude_old_transitions(part);
-          if (getter_velocity_magnitude_transitions(part) == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
           {
             for (std::size_t ss2 = ss+1; ss2 < distances.size(); ++ss2)
               --surviving_trajectories[ss2];
             break;
           }
+          velocity_autocorrelation[ss] +=
+            initial_velocity*getter_velocity_magnitude_old_transitions(part);
         }
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
-                << " trajectories discarded due to zero velocity\n";
+                << " trajectories discarded\n";
       
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_measures << "_"
-             << nr_samples << "_"
-             << run_nr;
       std::string filename = output_dir + "/"
         + "velocity_magnitude_autocorrelation_space_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t ss = 0; ss < distances.size(); ++ss)
-      {
         output << distances[ss] << "\t"
-               << velocity_autocorrelation[ss] << "\n";
-      }
+               << velocity_autocorrelation[ss] << "\t"
+               << surviving_trajectories[ss] << "\n";
       output.close();
       std::cout << "\tDone!\n";
       break;
@@ -547,6 +542,15 @@ int main(int argc, const char * argv[])
         beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
       std::cout << "\t\tDone!\n";
       
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
+      
       std::vector<double> times
         = range::linspace(0., measure_max*geometry.domain_side/operation::abs(mean_velocity),
                           nr_measures);
@@ -556,37 +560,12 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      double jump_size = jump_size_domains*geometry.domain_side;
-      
       std::vector<double> velocity_autocorrelation(times.size());
       std::vector<std::size_t> surviving_trajectories(times.size(), nr_samples);
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         double initial_velocity = getter_velocity_magnitude_transitions(part);
@@ -594,45 +573,36 @@ int main(int argc, const char * argv[])
         {
           while (part.state_new().time < times[tt])
           {
-            double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-            if (velocity_magnitude == 0.)
+            if (discard_criterium(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
           }
-          velocity_autocorrelation[tt] +=
-            initial_velocity*getter_velocity_magnitude_old_transitions(part);
-          if (getter_velocity_magnitude(part) == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
           {
             for (std::size_t tt2 = tt+1; tt2 < times.size(); ++tt2)
               --surviving_trajectories[tt2];
             break;
           }
+          velocity_autocorrelation[tt] +=
+            initial_velocity*getter_velocity_magnitude_old_transitions(part);
         }
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
-                << " trajectories discarded due to zero velocity\n";
+                << " trajectories discarded\n";
       
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_measures << "_"
-             << nr_samples << "_"
-             << run_nr;
       std::string filename = output_dir + "/"
         + "velocity_magnitude_autocorrelation_time_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t tt = 0; tt < times.size(); ++tt)
-      {
         output << times[tt] << "\t"
-               << velocity_autocorrelation[tt] << "\n";
-      }
+               << velocity_autocorrelation[tt] << "\t"
+               << surviving_trajectories[tt] << "\n";
       output.close();
       std::cout << "\tDone!\n";
       break;
@@ -643,12 +613,19 @@ int main(int argc, const char * argv[])
       std::vector<double> distances
         = range::linspace(0., measure_max*geometry.domain_side, nr_measures);
       
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
+
       std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
-    
-      double jump_size = jump_size_domains*geometry.domain_side;
       
       std::vector<double> velocity_autocorrelation(distances.size());
       std::vector<double> velocity_mean(particles.size());
@@ -658,84 +635,54 @@ int main(int argc, const char * argv[])
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         std::vector<double> velocity_magnitude(distances.size());
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         double initial_velocity = getter_velocity_magnitude_transitions(part);
         double distance_traveled = 0.;
+        std::size_t ss_attained = distances.size();
         for (std::size_t ss = 0; ss < distances.size(); ++ss)
         {
           while (distance_traveled < distances[ss])
           {
-            double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-            if (velocity_magnitude == 0.)
+            if (discard_criterium(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
             double distance_increment = operation::abs(operation::minus(getter_position(part),
               getter_position_old(part)));
             distance_traveled += distance_increment;
-            velocity_mean[pp] += velocity_magnitude*distance_increment;
+            velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*distance_increment;
           }
-          velocity_magnitude[ss] = getter_velocity_magnitude_old_transitions(part);
-          if (getter_velocity_magnitude(part) == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
           {
-            for (std::size_t ss2 = ss+1; ss2 < distances.size(); ++ss2)
+            ss_attained = ss;
+            for (std::size_t ss2 = ss_attained; ss2 < distances.size(); ++ss2)
               --surviving_trajectories[ss2];
             break;
           }
+          velocity_magnitude[ss] = getter_velocity_magnitude_old_transitions(part);
         }
         if (distance_traveled != 0.)
           velocity_mean[pp] /= distance_traveled;
-        for (std::size_t ss = 0; ss < distances.size(); ++ss)
+        for (std::size_t ss = 0; ss < ss_attained; ++ss)
           velocity_autocorrelation[ss] += (initial_velocity-velocity_mean[pp])
             *(velocity_magnitude[ss]-velocity_mean[pp]);
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
-                << " trajectories discarded due to zero velocity\n";
-      
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_measures << "_"
-             << nr_samples << "_"
-             << run_nr;
+                << " trajectories discarded\n";
+
       std::string filename = output_dir + "/"
         + "velocity_magnitude_fluctuations_autocorrelation_space_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t ss = 0; ss < distances.size(); ++ss)
-      {
         output << distances[ss] << "\t"
-               << velocity_autocorrelation[ss] << "\n";
-      }
+               << velocity_autocorrelation[ss] << "\t"
+               << surviving_trajectories[ss] << "\n";
       output.close();
       std::cout << "\tDone!\n";
       break;
@@ -750,6 +697,15 @@ int main(int argc, const char * argv[])
         beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
       std::cout << "\t\tDone!\n";
       
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
+      
       std::vector<double> times
         = range::linspace(0., measure_max*geometry.domain_side/operation::abs(mean_velocity),
                           nr_measures);
@@ -759,8 +715,6 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      double jump_size = jump_size_domains*geometry.domain_side;
-      
       std::vector<double> velocity_autocorrelation(times.size());
       std::vector<double> velocity_mean(particles.size());
       std::vector<std::size_t> surviving_trajectories(times.size(), nr_samples);
@@ -769,80 +723,50 @@ int main(int argc, const char * argv[])
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         std::vector<double> velocity_magnitude(times.size());
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         double initial_velocity = getter_velocity_magnitude(part);
+        std::size_t tt_attained = times.size()-1;
         for (std::size_t tt = 0; tt < times.size(); ++tt)
         {
           while (part.state_new().time < times[tt])
           {
-            double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-            if (velocity_magnitude == 0.)
+            if (discard_criterium(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
-            velocity_mean[pp] += velocity_magnitude*transitions.time_step();
+            velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*transitions.time_step();
           }
-          velocity_magnitude[tt] = getter_velocity_magnitude_old_transitions(part);
-          if (getter_velocity_magnitude_transitions(part) == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
           {
-            for (std::size_t tt2 = tt+1; tt2 < times.size(); ++tt2)
+            tt_attained = tt;
+            for (std::size_t tt2 = tt_attained+1; tt2 < times.size(); ++tt2)
               --surviving_trajectories[tt2];
             break;
           }
+          velocity_magnitude[tt] = getter_velocity_magnitude_old_transitions(part);
         }
         if (velocity_mean[pp] != 0.)
           velocity_mean[pp] /= std::min(times.back(), part.state_new().time);
-        for (std::size_t tt = 0; tt < times.size(); ++tt)
+        for (std::size_t tt = 0; tt <= tt_attained; ++tt)
           velocity_autocorrelation[tt] += (initial_velocity-velocity_mean[pp])
             *(velocity_magnitude[tt]-velocity_mean[pp]);
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
-                << " trajectories discarded due to zero velocity\n";
-      
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_measures << "_"
-             << nr_samples << "_"
-             << run_nr;
+                << " trajectories discarded\n";
+
       std::string filename = output_dir + "/"
         + "velocity_magnitude_fluctuations_autocorrelation_time_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t tt = 0; tt < times.size(); ++tt)
-      {
         output << times[tt] << "\t"
-               << velocity_autocorrelation[tt] << "\n";
-      }
+               << velocity_autocorrelation[tt] << "\t"
+               << surviving_trajectories[tt] << "\n";
       output.close();
       std::cout << "\tDone!\n";
       break;
@@ -853,59 +777,36 @@ int main(int argc, const char * argv[])
       std::vector<double> distances
         = range::linspace(0., measure_max*geometry.domain_side, nr_measures);
       
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
+      
       std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
-      
-      double jump_size = jump_size_domains*geometry.domain_side;
 
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_measures << "_"
-             << nr_samples << "_"
-             << run_nr;
       std::string filename = output_dir + "/"
         + "velocity_magnitude_series_space_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
       
-      std::size_t discarded = 0;
+      std::size_t surviving_trajectories = nr_samples;
       useful::print(output, distances);
       output << "\n";
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         double distance_traveled = 0.;
@@ -914,26 +815,25 @@ int main(int argc, const char * argv[])
         {
           while (distance_traveled < distances[ss])
           {
-            double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-            if (velocity_magnitude == 0.)
+            if (discard_criterium(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
             distance_traveled +=
               operation::abs(operation::minus(getter_position(part),
                                               getter_position_old(part)));
           }
-          velocity_series[ss] = getter_velocity_magnitude_old_transitions(part);
-          if (getter_velocity_magnitude_transitions(part) == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
           {
-            ++discarded;
+            --surviving_trajectories;
             break;
           }
+          velocity_series[ss] = getter_velocity_magnitude_old_transitions(part);
         }
         useful::print(output, velocity_series);
         output << "\n";
       }
-      std::cout << "\t" << discarded
-                << " trajectories discarded due to zero velocity\n";
+      std::cout << "\t" << nr_samples - surviving_trajectories
+                << " trajectories discarded\n";
       
       output.close();
       std::cout << "\tDone!\n";
@@ -952,23 +852,23 @@ int main(int argc, const char * argv[])
                           nr_measures);
       std::cout << "\t\tDone!\n";
       
+      std::cout << "\tImporting mean velocity magnitude...\n";
+      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
+      std::ifstream input{ mean_velocity_magnitude_filename };
+      if (!input.is_open())
+        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      double mean_velocity_magnitude;
+      input >> mean_velocity_magnitude;
+      std::cout << "\t\tDone!\n";
+      
       std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      double jump_size = jump_size_domains*geometry.domain_side;
-      
-      std::stringstream stream;
-      stream << std::scientific << std::setprecision(2);
-      stream << jump_size_domains << "_"
-             << measure_max << "_"
-             << nr_measures << "_"
-             << nr_samples << "_"
-             << run_nr;
       std::string filename = output_dir + "/"
         + "velocity_magnitude_series_time_lagrangian"
-        + "_" + data_set + "_" + stream.str() + ".dat";
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
       std::ofstream output{ filename };
       if (!output.is_open())
         throw useful::open_write_error(filename);
@@ -977,34 +877,11 @@ int main(int argc, const char * argv[])
       
       useful::print(output, times);
       output << "\n";
-      std::size_t discarded = 0;
+      std::size_t surviving_trajectories = nr_samples;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
-        ctrw::Transitions_Position_VelocityStep transitions{
-            jump_size,
-            JumpGenerator{
-              velocity_field,
-              0.,
-              1,
-              boundaries.boundary_reflecting_periodic },
-            boundaries.boundary_reflecting_periodic
-        };
-        
-        auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-          [&transitions](State const& state)
-          { return transitions.velocity(state); } };
-        
-        auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_transitions(particle)); };
-        auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-        (CTRW::Particle const& particle)
-        { return operation::abs(getter_velocity_old_transitions(particle)); };
         
         auto const& part = ctrw.particles(0);
         std::vector<double> velocity_series(times.size());
@@ -1012,28 +889,26 @@ int main(int argc, const char * argv[])
         {
           while (part.state_new().time < times[tt])
           {
-            double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-            if (velocity_magnitude == 0.)
+            if (discard_criterium(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
           }
-          velocity_series[tt] = getter_velocity_magnitude_old_transitions(part);
-          if (getter_velocity_magnitude_transitions(part) == 0.)
+          if (discard_criterium(part, mean_velocity_magnitude))
           {
-            ++discarded;
+            --surviving_trajectories;
             break;
           }
+          velocity_series[tt] = getter_velocity_magnitude_old_transitions(part);
         }
         useful::print(output, velocity_series);
         output << "\n";
       }
-      std::cout << "\t" << discarded
-                << " trajectories discarded due to zero velocity\n";
+      std::cout << "\t" << nr_samples - surviving_trajectories
+                << " trajectories discarded\n";
       output.close();
       std::cout << "\tDone!\n";
       break;
     }
-      
     default:
       throw useful::bad_parameters();
   }

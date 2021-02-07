@@ -10,9 +10,9 @@
 #define Transitions_State_h
 
 #include <utility>
-#include "Boundary.h"
-#include "JumpGenerator.h"
-#include "TimeGenerator.h"
+#include "Stochastic/CTRW/Boundary.h"
+#include "Stochastic/CTRW/JumpGenerator.h"
+#include "Stochastic/CTRW/TimeGenerator.h"
 #include "general/Operations.h"
 
 namespace ctrw
@@ -107,6 +107,8 @@ namespace ctrw
   Transitions_Position(JumpGenerator&&, Boundary&&) ->
   Transitions_Position<JumpGenerator, Boundary>;
 
+  // Helper class to return velocity from JumpGenerator object
+  // given state
   template <typename JumpGenerator>
   struct VelocityFromGenerator
   {

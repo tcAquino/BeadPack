@@ -46,7 +46,7 @@ namespace boundary
   // Return displacement to be added to 1d position to place it within
   // periodic boundaries
 	double periodic
- (double position, std::pair<double, double> const& boundaries)
+  (double position, std::pair<double, double> const& boundaries)
 	{
 		double box_size = boundaries.second - boundaries.first;
 		double pos = position - boundaries.first;
@@ -138,7 +138,7 @@ namespace boundary
       return true;
     }
     
-    template <typename Position, typename Projection = std::vector<double>>
+    template <typename Position, typename Projection = double>
     void translate(Position& position, Projection projection) const
     {
       operation::plus(position,
@@ -181,10 +181,10 @@ namespace boundary
     // Translate position according to symmetry planes
     template <typename Position, typename Projections = std::vector<double>>
     void translate
-    (Position& position, Projections projections) const
+    (Position& position, Projections const& projections) const
     {
       operation::plus(position,
-                      operation::times(domain_dimensions,projections));
+                      operation::times(domain_dimensions, projections));
     }
     
   private:
@@ -718,13 +718,23 @@ namespace boundary
       ? std::vector<double>(symmetry_planes.dim, 0.)
       : origin }
     {}
+    
+    // Construct given overall scale factor and coordinate origin
+    Periodic_SymmetryPlanes
+    (double scale = 1., std::vector<double> origin = {})
+    : symmetry_planes{}
+    , scale{ scale }
+    , origin{ origin.size() == 0.
+      ? std::vector<double>(symmetry_planes.dim, 0.)
+      : origin }
+    {}
 
     // Check if position is out of bounds
     template <typename Position>
     bool outOfBounds(Position const& position) const
     {
       for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
-        if (geometry::project(position, symmetry_planes, dd, scale, origin))
+        if (std::floor(geometry::project(position, symmetry_planes, dd, scale, origin)) != 0.)
           return 1;
       return 0;
     }
@@ -792,7 +802,7 @@ namespace boundary
     bool outOfBounds(Position const& position) const
     {
       for (std::size_t dd = 0; dd < symmetry_planes.dim; ++dd)
-        if (geometry::project(position, symmetry_planes, dd, scale, origin))
+        if (std::floor(geometry::project(position, symmetry_planes, dd, scale, origin)) != 0.)
           return 1;
       return 0;
     }
