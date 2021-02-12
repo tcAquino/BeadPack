@@ -9,6 +9,7 @@
 #ifndef BeadPack_InitialConditions_h
 #define BeadPack_InitialConditions_h
 
+#include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <cmath>
 #include <random>
@@ -374,6 +375,7 @@ namespace beadpack
   }
   
   // Load particle positions from file
+  // Load only the first nr_particles in file
   // File contents are the values of the position components
   // Components of a position must be row-major contiguous
   template
@@ -394,6 +396,41 @@ namespace beadpack
       for (std::size_t dd = 0; dd < state.position.size(); ++dd)
         if (!(input >> state.position[dd]))
           throw useful::parse_error_file(filename);
+      boundary(state);
+      particles.push_back(state);
+    }
+          
+    return particles;
+  }
+  
+  // Load particle positions from file
+  // First dim columns in each line are the values of the position components,
+  // any further columns are ignored
+  template
+  <typename Particle, typename Boundary, typename StateMaker>
+  auto make_particles_load_positions
+  (std::string const& filename,
+   Boundary const& boundary, StateMaker state_maker,
+   std::size_t header_lines = 0, double rescale = 1.,
+   std::size_t nr_estimate = 0, std::string const& delims = "\t,| ")
+  {
+    std::vector<Particle> particles;
+    particles.reserve(nr_estimate);
+    
+    std::ifstream input{ filename };
+    if (!input.is_open())
+      throw useful::open_read_error(filename);
+    std::string line;
+    for (std::size_t ll = 0; ll < header_lines; ++ll)
+      getline(input, line);
+    
+    while (getline(input, line))
+    {
+      std::vector<std::string> split_line;
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      auto state{ state_maker() };
+      for (std::size_t dd = 0; dd < state.position.size(); ++dd)
+        state.position[dd] = std::stod(split_line[dd]);
       boundary(state);
       particles.push_back(state);
     }
@@ -471,6 +508,10 @@ namespace beadpack
           beadpack::make_particles_load_positions<Particle>(
             nr_particles, filename, boundary_periodic,
             state_maker);
+      case 9:
+        return
+          beadpack::make_particles_load_positions<Particle>(
+            filename, boundary_periodic, state_maker);
       default:
         throw std::invalid_argument{ "Undefined initial condition type" };
     }

@@ -141,7 +141,7 @@ namespace boundary
     template <typename Position, typename Projection = double>
     void translate(Position& position, Projection projection) const
     {
-      operation::plus(position,
+      operation::plus_InPlace(position,
                       (boundaries.second-boundaries.first)*projection);
     }
 	};
@@ -183,7 +183,7 @@ namespace boundary
     void translate
     (Position& position, Projections const& projections) const
     {
-      operation::plus(position,
+      operation::plus_InPlace(position,
                       operation::times(domain_dimensions, projections));
     }
     
@@ -244,7 +244,7 @@ namespace boundary
     void translate
     (Position& position, Projections const& projections) const
     {
-      operation::plus(position,
+      operation::plus_InPlace(position,
                       operation::times(domain_dimensions, projections));
     }
     

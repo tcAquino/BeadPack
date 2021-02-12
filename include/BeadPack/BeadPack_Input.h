@@ -9,9 +9,9 @@
 #ifndef BeadPack_Input_h
 #define BeadPack_Input_h
 
+#include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <string>
-#include <boost/algorithm/string.hpp>
 #include "../general/useful.h"
 
 namespace beadpack

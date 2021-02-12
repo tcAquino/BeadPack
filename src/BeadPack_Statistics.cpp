@@ -161,10 +161,11 @@ int main(int argc, const char * argv[])
   
   // Note: The equals sign in <= is important for the == 0. case
   auto discard_criterium =
-  [&getter_velocity_magnitude, &velocity_cutoff]
+  [&getter_velocity_magnitude_transitions, &velocity_cutoff]
   (CTRW::Particle const& part, double mean_velocity_magnitude = 0.)
   {
-    return getter_velocity_magnitude(part) <= velocity_cutoff*mean_velocity_magnitude;
+    return getter_velocity_magnitude_transitions(part) <=
+      velocity_cutoff*mean_velocity_magnitude;
   };
   
   std::stringstream stream_samples;
@@ -202,10 +203,18 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
+      std::cout << "\tComputing velocity samples...\n";
       std::vector<double> mean_velocity(geometry.dim);
+      std::size_t sample = 0;
       for (auto const& part : particles)
+      {
+        ++sample;
+        if (sample % 10000 == 0)
+          std::cout << "\t\tSample " << sample << " of " << nr_samples;
         operation::plus_InPlace(mean_velocity, getter_velocity(part));
+      }
       operation::div_scalar_InPlace(mean_velocity, particles.size());
+      std::cout << "\t\tDone!\n";
       
       std::string mean_velocity_filename = output_dir + "/" + "mean_velocity"
         + "_" + data_set + "_" + params_samples + ".dat";
@@ -229,9 +238,18 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
+      std::cout << "\tComputing velocity magnitude samples...\n";
       double mean_velocity_magnitude = 0.;
+      std::size_t sample = 0;
       for (auto const& part : particles)
+      {
+        ++sample;
+        if (sample % 10000 == 0)
+          std::cout << "\t\tSample " << sample << " of " << nr_samples << "\n";
         mean_velocity_magnitude += getter_velocity_magnitude(part);
+      }
+      std::cout << "\t\tDone!\n";
+      
       mean_velocity_magnitude /= particles.size();
       std::string mean_velocity_magnitude_filename = output_dir + "/"
         + "mean_velocity_magnitude" + "_"
@@ -291,10 +309,19 @@ int main(int argc, const char * argv[])
            ctrw::Get_position_property{ velocity_field },
            mean_velocity } };
       
+      std::cout << "\tComputing downstream velocity samples...\n";
       double mean_velocity_downstream = 0.;
+      std::size_t sample = 0;
       for (auto const& part : particles)
+      {
+        ++sample;
+        if (sample % 10000 == 0)
+          std::cout << "\t\tSample " << sample << " of " << nr_samples << "\n";
         mean_velocity_downstream += getter_velocity_downstream(part);
+      }
       mean_velocity_downstream /= particles.size();
+      std::cout << "\t\tDone!\n";
+      
       double tortuosity = mean_velocity_magnitude/mean_velocity_downstream;
       std::string filename = output_dir + "/" + "tortuosity"
         + "_" + data_set + "_" + params_samples + ".dat";
@@ -325,11 +352,19 @@ int main(int argc, const char * argv[])
         throw useful::open_write_error(filename);
       output << std::setprecision(12)
              << std::scientific;
+      
+      std::cout << "\tComputing velocity magnitude samples...\n";
+      std::size_t sample = 0;
       for (auto const& part : particles)
       {
+        ++sample;
+        if (sample % 10000 == 0)
+          std::cout << "\t\tSample " << sample << " of " << nr_samples << "\n";
         useful::print(output, getter_velocity_magnitude(part));
         output << "\n";
       }
+      std::cout << "\t\tDone!\n";
+      
       output.close();
       std::cout << "\tDone!\n";
       break;
