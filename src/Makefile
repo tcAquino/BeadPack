@@ -1,5 +1,5 @@
 CC = g++
-OPT = -O3 -DNDEBUG
+OPT = -O3 -NDEBUG
 PTH = ../include
 PTHINC = /usr/local/include
 PTHBIN = ../bin
