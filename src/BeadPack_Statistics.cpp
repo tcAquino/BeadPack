@@ -159,15 +159,12 @@ int main(int argc, const char * argv[])
   (CTRW::Particle const& particle)
   { return operation::abs(getter_velocity_old_transitions(particle)); };
   
-  // Note: The equals sign in <= is important for the == 0. case
-  auto discard_criterium =
+  auto valid =
   [&getter_velocity_magnitude_transitions, &velocity_cutoff]
   (CTRW::Particle const& part, double mean_velocity_magnitude = 0.)
   {
-    double velocity_magnitude = getter_velocity_magnitude_transitions(part);
-    return velocity_magnitude <=
-      velocity_cutoff*mean_velocity_magnitude
-      || useful::isnan(velocity_magnitude);
+    return getter_velocity_magnitude_transitions(part)
+      > velocity_cutoff*mean_velocity_magnitude;
   };
   
   std::stringstream stream_samples;
@@ -402,7 +399,7 @@ int main(int argc, const char * argv[])
         double distance_traveled = 0.;
         while (distance_traveled < distance_max)
         {
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
             break;
           ctrw.step(transitions);
           double distance_increment = operation::abs(operation::minus(getter_position(part),
@@ -410,7 +407,7 @@ int main(int argc, const char * argv[])
           distance_traveled += distance_increment;
           velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*distance_increment;
         }
-        if (discard_criterium(part, mean_velocity_magnitude))
+        if (!valid(part, mean_velocity_magnitude))
           --surviving_trajectories;
         if (distance_traveled != 0.)
           velocity_mean[pp] /= distance_traveled;
@@ -470,12 +467,12 @@ int main(int argc, const char * argv[])
         auto const& part = ctrw.particles(0);
         while (part.state_new().time < time_max)
         {
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
             break;
           ctrw.step(transitions);
           velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*transitions.time_step();
         }
-        if (discard_criterium(part, mean_velocity_magnitude))
+        if (!valid(part, mean_velocity_magnitude))
           --surviving_trajectories;
         if (velocity_mean[pp] != 0.)
           velocity_mean[pp] /= std::min(time_max, part.state_new().time);
@@ -532,14 +529,14 @@ int main(int argc, const char * argv[])
         {
           while (distance_traveled < distances[ss])
           {
-            if (discard_criterium(part, mean_velocity_magnitude))
+            if (!valid(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
             distance_traveled +=
               operation::abs(operation::minus(getter_position(part),
                                               getter_position_old(part)));
           }
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
           {
             for (std::size_t ss2 = ss+1; ss2 < distances.size(); ++ss2)
               --surviving_trajectories[ss2];
@@ -610,11 +607,11 @@ int main(int argc, const char * argv[])
         {
           while (part.state_new().time < times[tt])
           {
-            if (discard_criterium(part, mean_velocity_magnitude))
+            if (!valid(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
           }
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
           {
             for (std::size_t tt2 = tt+1; tt2 < times.size(); ++tt2)
               --surviving_trajectories[tt2];
@@ -681,7 +678,7 @@ int main(int argc, const char * argv[])
         {
           while (distance_traveled < distances[ss])
           {
-            if (discard_criterium(part, mean_velocity_magnitude))
+            if (!valid(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
             double distance_increment = operation::abs(operation::minus(getter_position(part),
@@ -689,7 +686,7 @@ int main(int argc, const char * argv[])
             distance_traveled += distance_increment;
             velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*distance_increment;
           }
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
           {
             ss_attained = ss;
             for (std::size_t ss2 = ss_attained; ss2 < distances.size(); ++ss2)
@@ -768,12 +765,12 @@ int main(int argc, const char * argv[])
         {
           while (part.state_new().time < times[tt])
           {
-            if (discard_criterium(part, mean_velocity_magnitude))
+            if (!valid(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
             velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*transitions.time_step();
           }
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
           {
             tt_attained = tt;
             for (std::size_t tt2 = tt_attained+1; tt2 < times.size(); ++tt2)
@@ -852,14 +849,14 @@ int main(int argc, const char * argv[])
         {
           while (distance_traveled < distances[ss])
           {
-            if (discard_criterium(part, mean_velocity_magnitude))
+            if (!valid(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
             distance_traveled +=
               operation::abs(operation::minus(getter_position(part),
                                               getter_position_old(part)));
           }
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
           {
             --surviving_trajectories;
             break;
@@ -926,11 +923,11 @@ int main(int argc, const char * argv[])
         {
           while (part.state_new().time < times[tt])
           {
-            if (discard_criterium(part, mean_velocity_magnitude))
+            if (!valid(part, mean_velocity_magnitude))
               break;
             ctrw.step(transitions);
           }
-          if (discard_criterium(part, mean_velocity_magnitude))
+          if (!valid(part, mean_velocity_magnitude))
           {
             --surviving_trajectories;
             break;
