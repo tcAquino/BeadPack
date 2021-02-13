@@ -26,7 +26,7 @@
 
 int main(int argc, const char * argv[])
 {
-  using namespace beadpack::model_bcc_cartesian;
+  using namespace beadpack::model_bcc_symmetryplanes;
   
   if (argc == 1)
   {
@@ -164,8 +164,10 @@ int main(int argc, const char * argv[])
   [&getter_velocity_magnitude_transitions, &velocity_cutoff]
   (CTRW::Particle const& part, double mean_velocity_magnitude = 0.)
   {
-    return getter_velocity_magnitude_transitions(part) <=
-      velocity_cutoff*mean_velocity_magnitude;
+    double velocity_magnitude = getter_velocity_magnitude_transitions(part);
+    return velocity_magnitude <=
+      velocity_cutoff*mean_velocity_magnitude
+      || useful::isnan(velocity_magnitude);
   };
   
   std::stringstream stream_samples;
