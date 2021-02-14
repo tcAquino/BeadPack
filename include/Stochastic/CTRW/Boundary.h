@@ -816,7 +816,7 @@ namespace boundary
       operation::plus_InPlace(state.periodicity, projections);
       
       for (auto const& val : projections)
-        if (val)
+        if (val != 0)
           return 1;
       
       return 0;

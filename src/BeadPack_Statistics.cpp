@@ -52,7 +52,7 @@ int main(int argc, const char * argv[])
               << "data_set : Path to input data folder relative to input_dir_base\n"
               << "           (and model name identifier for output files)\n"
               << "(if measure_type >= 5) jump_size_domains : Jump size in units of domain side\n"
-              << "(if measure_type >= 5) velocity_cutoff : minimum velocity to discard trajectory\n"
+              << "(if measure_type >= 5) velocity_tolerance : minimum velocity to discard trajectory\n"
               << "                                         in units of mean velocity\n"
               << "(if measure_type >= 5) measure_max : Maximum distance along\n"
               << "                                     streamlines in units of domain side\n"
@@ -82,13 +82,13 @@ int main(int argc, const char * argv[])
   
   double jump_size_domains = 0.;
   double measure_max = 0.;
-  double velocity_cutoff = 0.;
+  double velocity_tolerance = 0.;
   if (measure_type >= 5)
   {
     if (argc < 7)
       throw useful::bad_parameters();
     jump_size_domains = atof(argv[arg++]);
-    velocity_cutoff = atof(argv[arg++]);
+    velocity_tolerance = atof(argv[arg++]);
     measure_max = atof(argv[arg++]);
   }
   
@@ -141,31 +141,9 @@ int main(int argc, const char * argv[])
     ctrw::Get_position_periodic{ boundaries.boundary_periodic } };
   auto getter_velocity = ctrw::Get_new_from_particle{
     ctrw::Get_position_property{ velocity_field } };
-  auto getter_velocity_old = ctrw::Get_old_from_particle{
-    ctrw::Get_position_property{ velocity_field } };
   auto getter_velocity_magnitude = [&getter_velocity]
   (CTRW::Particle const& particle)
   { return operation::abs(getter_velocity(particle)); };
-  auto getter_velocity_transitions = ctrw::Get_new_from_particle{
-    [&transitions](State const& state)
-    { return transitions.velocity(state); } };
-  auto getter_velocity_old_transitions = ctrw::Get_old_from_particle{
-    [&transitions](State const& state)
-    { return transitions.velocity(state); } };
-  auto getter_velocity_magnitude_transitions = [&getter_velocity_transitions]
-  (CTRW::Particle const& particle)
-  { return operation::abs(getter_velocity_transitions(particle)); };
-  auto getter_velocity_magnitude_old_transitions = [&getter_velocity_old_transitions]
-  (CTRW::Particle const& particle)
-  { return operation::abs(getter_velocity_old_transitions(particle)); };
-  
-  auto valid =
-  [&getter_velocity_magnitude_transitions, &velocity_cutoff]
-  (CTRW::Particle const& part, double mean_velocity_magnitude = 0.)
-  {
-    return getter_velocity_magnitude_transitions(part)
-      > velocity_cutoff*mean_velocity_magnitude;
-  };
   
   std::stringstream stream_samples;
   stream_samples << nr_samples << "_" << run_nr;
@@ -174,7 +152,7 @@ int main(int argc, const char * argv[])
   std::stringstream stream_lagrangian_no_measures;
   stream_lagrangian_no_measures << std::scientific << std::setprecision(2);
   stream_lagrangian_no_measures << jump_size_domains << "_"
-                                << velocity_cutoff << "_"
+                                << velocity_tolerance << "_"
                                 << measure_max << "_"
                                 << nr_samples << "_"
                                 << run_nr;
@@ -183,7 +161,7 @@ int main(int argc, const char * argv[])
   std::stringstream stream_lagrangian_measures;
   stream_lagrangian_measures << std::scientific << std::setprecision(2);
   stream_lagrangian_measures << jump_size_domains << "_"
-                             << velocity_cutoff << "_"
+                             << velocity_tolerance << "_"
                              << measure_max << "_"
                              << nr_measures << "_"
                              << nr_samples << "_"
@@ -390,6 +368,7 @@ int main(int argc, const char * argv[])
       
       std::vector<double> velocity_mean(particles.size());
       std::size_t surviving_trajectories = nr_samples;
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -397,17 +376,20 @@ int main(int argc, const char * argv[])
         
         auto const& part = ctrw.particles(0);
         double distance_traveled = 0.;
+        double initial_velocity = getter_velocity_magnitude(part);
+        double velocity = initial_velocity;
         while (distance_traveled < distance_max)
         {
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
             break;
           ctrw.step(transitions);
           double distance_increment = operation::abs(operation::minus(getter_position(part),
             getter_position_old(part)));
           distance_traveled += distance_increment;
-          velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*distance_increment;
+          velocity = distance_increment/transitions.time_step();
+          velocity_mean[pp] += velocity*distance_increment;
         }
-        if (!valid(part, mean_velocity_magnitude))
+        if (velocity < velocity_cutoff)
           --surviving_trajectories;
         if (distance_traveled != 0.)
           velocity_mean[pp] /= distance_traveled;
@@ -459,23 +441,28 @@ int main(int argc, const char * argv[])
       
       std::vector<double> velocity_mean(particles.size());
       std::size_t surviving_trajectories = nr_samples;
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         
         auto const& part = ctrw.particles(0);
+        double velocity = getter_velocity_magnitude(part);
         while (part.state_new().time < time_max)
         {
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
             break;
           ctrw.step(transitions);
-          velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*transitions.time_step();
+          double distance_increment = operation::abs(operation::minus(getter_position(part),
+                                                                      getter_position_old(part)));
+          velocity = distance_increment/transitions.time_step();
+          velocity_mean[pp] += distance_increment;
         }
-        if (!valid(part, mean_velocity_magnitude))
+        if (velocity < velocity_cutoff)
           --surviving_trajectories;
         if (velocity_mean[pp] != 0.)
-          velocity_mean[pp] /= std::min(time_max, part.state_new().time);
+          velocity_mean[pp] /= part.state_new().time;
       }
       std::cout << "\t" << nr_samples - surviving_trajectories
                 << " trajectories discarded\n";
@@ -517,33 +504,34 @@ int main(int argc, const char * argv[])
       
       std::vector<double> velocity_autocorrelation(distances.size());
       std::vector<std::size_t> surviving_trajectories(distances.size(), nr_samples);
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         
         auto const& part = ctrw.particles(0);
-        double initial_velocity = getter_velocity_magnitude_transitions(part);
+        double initial_velocity = getter_velocity_magnitude(part);
+        double velocity = initial_velocity;
         double distance_traveled = 0.;
         for (std::size_t ss = 0; ss < distances.size(); ++ss)
         {
           while (distance_traveled < distances[ss])
           {
-            if (!valid(part, mean_velocity_magnitude))
+            if (velocity < velocity_cutoff)
               break;
             ctrw.step(transitions);
             distance_traveled +=
               operation::abs(operation::minus(getter_position(part),
                                               getter_position_old(part)));
           }
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
           {
             for (std::size_t ss2 = ss+1; ss2 < distances.size(); ++ss2)
               --surviving_trajectories[ss2];
             break;
           }
-          velocity_autocorrelation[ss] +=
-            initial_velocity*getter_velocity_magnitude_old_transitions(part);
+          velocity_autocorrelation[ss] += initial_velocity*velocity;
         }
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
@@ -596,29 +584,33 @@ int main(int argc, const char * argv[])
       
       std::vector<double> velocity_autocorrelation(times.size());
       std::vector<std::size_t> surviving_trajectories(times.size(), nr_samples);
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         
         auto const& part = ctrw.particles(0);
-        double initial_velocity = getter_velocity_magnitude_transitions(part);
+        double initial_velocity = getter_velocity_magnitude(part);
+        double velocity = initial_velocity;
         for (std::size_t tt = 0; tt < times.size(); ++tt)
         {
           while (part.state_new().time < times[tt])
           {
-            if (!valid(part, mean_velocity_magnitude))
+            if (velocity < velocity_cutoff)
               break;
             ctrw.step(transitions);
+            double distance_increment = operation::abs(operation::minus(getter_position(part),
+                                                                        getter_position_old(part)));
+            velocity = distance_increment/transitions.time_step();
           }
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
           {
             for (std::size_t tt2 = tt+1; tt2 < times.size(); ++tt2)
               --surviving_trajectories[tt2];
             break;
           }
-          velocity_autocorrelation[tt] +=
-            initial_velocity*getter_velocity_magnitude_old_transitions(part);
+          velocity_autocorrelation[tt] += initial_velocity*velocity;
         }
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
@@ -664,6 +656,7 @@ int main(int argc, const char * argv[])
       std::vector<double> velocity_autocorrelation(distances.size());
       std::vector<double> velocity_mean(particles.size());
       std::vector<std::size_t> surviving_trajectories(distances.size(), nr_samples);
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -671,29 +664,33 @@ int main(int argc, const char * argv[])
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         
         auto const& part = ctrw.particles(0);
-        double initial_velocity = getter_velocity_magnitude_transitions(part);
+        double initial_velocity = getter_velocity_magnitude(part);
+        double velocity = initial_velocity;
         double distance_traveled = 0.;
         std::size_t ss_attained = distances.size();
         for (std::size_t ss = 0; ss < distances.size(); ++ss)
         {
           while (distance_traveled < distances[ss])
           {
-            if (!valid(part, mean_velocity_magnitude))
+            if (velocity < velocity_cutoff)
               break;
             ctrw.step(transitions);
             double distance_increment = operation::abs(operation::minus(getter_position(part),
               getter_position_old(part)));
+            velocity = distance_increment/transitions.time_step();
+            if (velocity < velocity_cutoff)
+              break;
             distance_traveled += distance_increment;
-            velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*distance_increment;
+            velocity_mean[pp] += velocity*distance_increment;
           }
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
           {
             ss_attained = ss;
             for (std::size_t ss2 = ss_attained; ss2 < distances.size(); ++ss2)
               --surviving_trajectories[ss2];
             break;
           }
-          velocity_magnitude[ss] = getter_velocity_magnitude_old_transitions(part);
+          velocity_magnitude[ss] = velocity;
         }
         if (distance_traveled != 0.)
           velocity_mean[pp] /= distance_traveled;
@@ -752,6 +749,7 @@ int main(int argc, const char * argv[])
       std::vector<double> velocity_autocorrelation(times.size());
       std::vector<double> velocity_mean(particles.size());
       std::vector<std::size_t> surviving_trajectories(times.size(), nr_samples);
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -760,24 +758,28 @@ int main(int argc, const char * argv[])
         
         auto const& part = ctrw.particles(0);
         double initial_velocity = getter_velocity_magnitude(part);
+        double velocity = initial_velocity;
         std::size_t tt_attained = times.size()-1;
         for (std::size_t tt = 0; tt < times.size(); ++tt)
         {
           while (part.state_new().time < times[tt])
           {
-            if (!valid(part, mean_velocity_magnitude))
+            if (velocity < velocity_cutoff)
               break;
             ctrw.step(transitions);
-            velocity_mean[pp] += getter_velocity_magnitude_old_transitions(part)*transitions.time_step();
+            double distance_increment = operation::abs(operation::minus(getter_position(part),
+                                                                        getter_position_old(part)));
+            velocity = distance_increment/transitions.time_step();
+            velocity_mean[pp] += distance_increment;
           }
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
           {
             tt_attained = tt;
             for (std::size_t tt2 = tt_attained+1; tt2 < times.size(); ++tt2)
               --surviving_trajectories[tt2];
             break;
           }
-          velocity_magnitude[tt] = getter_velocity_magnitude_old_transitions(part);
+          velocity_magnitude[tt] = velocity;
         }
         if (velocity_mean[pp] != 0.)
           velocity_mean[pp] /= std::min(times.back(), part.state_new().time);
@@ -837,6 +839,7 @@ int main(int argc, const char * argv[])
       std::size_t surviving_trajectories = nr_samples;
       useful::print(output, distances);
       output << "\n";
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -845,23 +848,26 @@ int main(int argc, const char * argv[])
         auto const& part = ctrw.particles(0);
         double distance_traveled = 0.;
         std::vector<double> velocity_series(distances.size());
+        double initial_velocity = getter_velocity_magnitude(part);
+        double velocity = initial_velocity;
         for (std::size_t ss = 0; ss < distances.size(); ++ss)
         {
           while (distance_traveled < distances[ss])
           {
-            if (!valid(part, mean_velocity_magnitude))
+            if (velocity < velocity_cutoff)
               break;
             ctrw.step(transitions);
-            distance_traveled +=
-              operation::abs(operation::minus(getter_position(part),
-                                              getter_position_old(part)));
+            double distance_increment = operation::abs(operation::minus(getter_position(part),
+                                                                        getter_position_old(part)));
+            distance_traveled += distance_increment;
+            velocity = distance_increment/transitions.time_step();
           }
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
           {
             --surviving_trajectories;
             break;
           }
-          velocity_series[ss] = getter_velocity_magnitude_old_transitions(part);
+          velocity_series[ss] = velocity;
         }
         useful::print(output, velocity_series);
         output << "\n";
@@ -912,6 +918,7 @@ int main(int argc, const char * argv[])
       useful::print(output, times);
       output << "\n";
       std::size_t surviving_trajectories = nr_samples;
+      double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
       for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         std::cout << "\tTrajectory " << pp+1 << " of " << particles.size() << "\n";
@@ -919,20 +926,25 @@ int main(int argc, const char * argv[])
         
         auto const& part = ctrw.particles(0);
         std::vector<double> velocity_series(times.size());
+        double initial_velocity = getter_velocity_magnitude(part);
+        double velocity = initial_velocity;
         for (std::size_t tt = 0; tt < times.size(); ++tt)
         {
           while (part.state_new().time < times[tt])
           {
-            if (!valid(part, mean_velocity_magnitude))
+            if (velocity < velocity_cutoff)
               break;
             ctrw.step(transitions);
+            double distance_increment = operation::abs(operation::minus(getter_position(part),
+                                                                        getter_position_old(part)));
+            velocity = distance_increment/transitions.time_step();
           }
-          if (!valid(part, mean_velocity_magnitude))
+          if (velocity < velocity_cutoff)
           {
             --surviving_trajectories;
             break;
           }
-          velocity_series[tt] = getter_velocity_magnitude_old_transitions(part);
+          velocity_series[tt] = velocity;
         }
         useful::print(output, velocity_series);
         output << "\n";

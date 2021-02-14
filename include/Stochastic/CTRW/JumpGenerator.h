@@ -305,7 +305,6 @@ namespace ctrw
                           state_intermediate.position);
       boundary(state_intermediate, state);
       auto k4 = velocity(state_intermediate);
-      
       auto jump = operation::plus(k1, k4);
       operation::linearOp_InPlace(1., jump, 2., k2);
       operation::linearOp_InPlace(1., jump, 2., k3);
