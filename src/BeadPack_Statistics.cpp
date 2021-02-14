@@ -462,7 +462,7 @@ int main(int argc, const char * argv[])
         if (velocity < velocity_cutoff)
           --surviving_trajectories;
         if (velocity_mean[pp] != 0.)
-          velocity_mean[pp] /= part.state_new().time;
+          velocity_mean[pp] /= std::min(part.state_new().time, time_max);
       }
       std::cout << "\t" << nr_samples - surviving_trajectories
                 << " trajectories discarded\n";
