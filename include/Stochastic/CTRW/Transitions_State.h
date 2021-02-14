@@ -9,6 +9,7 @@
 #ifndef Transitions_State_h
 #define Transitions_State_h
 
+#include <limits>
 #include <utility>
 #include "Stochastic/CTRW/Boundary.h"
 #include "Stochastic/CTRW/JumpGenerator.h"
@@ -161,6 +162,11 @@ namespace ctrw
     {
       auto state_old = state;
       jump_generator.time_step(step_length/operation::abs(velocity(state)));
+      if (jump_generator.time_step() == std::numeric_limits<double>::infinity())
+      {
+        state.time = std::numeric_limits<double>::infinity();
+        return;
+      }
       operation::plus_InPlace(state.position, jump_generator(state));
       state.time += jump_generator.time_step();
       boundary(state, state_old);
