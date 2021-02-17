@@ -92,9 +92,8 @@ int main(int argc, const char * argv[])
   std::cout << "\tDone!\n";
   
   std::cout << "Importing mean velocity...\n";
-  std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
   std::vector<double> mean_velocity
-    = beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+    = beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
   double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
@@ -174,17 +173,11 @@ int main(int argc, const char * argv[])
   std::cout << "\tDiscretization length = " << length_discretization << "\n";
   std::cout << "\tNr of measures = " << nr_measures << "\n";
   
-  std::string filename_time{ filename_output_time };
-  std::ofstream output_time{ filename_time };
-  if (!output_time.is_open())
-    throw useful::open_write_error(filename_time);
+  auto output_time = useful::open_write(filename_output_time);
   output_time << std::setprecision(8)
               << std::scientific;
   
-  std::string filename_space{ filename_output_space };
-  std::ofstream output_space{ filename_space };
-  if (!output_space.is_open())
-    throw useful::open_write_error(filename_space);
+  auto output_space = useful::open_write(filename_output_space);
   output_space << std::setprecision(8)
                << std::scientific;
   

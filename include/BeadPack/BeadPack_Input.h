@@ -12,7 +12,7 @@
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <string>
-#include "../general/useful.h"
+#include "general/useful.h"
 
 namespace beadpack
 {
@@ -35,9 +35,7 @@ namespace beadpack
     std::vector<Bead> beads;
     beads.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -45,7 +43,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       beads.push_back({ typename Bead::Position(dim),
         rescale*std::stod(split_line[dim]) });
@@ -76,9 +76,7 @@ namespace beadpack
     std::vector<Bead> beads;
     beads.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -86,7 +84,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       beads.push_back({ typename Bead::Position(dim),
         rescale*std::stod(split_line[dim])/2. });
@@ -116,9 +116,7 @@ namespace beadpack
     std::vector<Point> contacts;
     contacts.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -126,7 +124,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       contacts.push_back(Point(dim));
       for (std::size_t dd = 0; dd < dim; ++dd)
@@ -157,9 +157,7 @@ namespace beadpack
     std::vector<Point> contacts;
     contacts.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -167,7 +165,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       contacts.push_back(Point(dim));
       for (std::size_t dd = 0; dd < dim; ++dd)
@@ -201,9 +201,7 @@ namespace beadpack
     points_velocities.first.reserve(nr_estimate);
     points_velocities.second.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -211,7 +209,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       points_velocities.first.push_back(Point(dim));
       points_velocities.second.push_back(Vector(dim));
@@ -249,9 +249,7 @@ namespace beadpack
     points_velocities.first.reserve(nr_estimate);
     points_velocities.second.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -259,7 +257,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       points_velocities.first.push_back(Point(dim));
       points_velocities.second.push_back(Vector(dim));
@@ -300,9 +300,7 @@ namespace beadpack
     points_velocities.first.reserve(nr_estimate);
     points_velocities.second.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -310,7 +308,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       points_velocities.first.push_back(Point(dim));
       points_velocities.second.push_back(Vector(dim));
@@ -348,9 +348,7 @@ namespace beadpack
     points_velocities.first.reserve(nr_estimate);
     points_velocities.second.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -358,7 +356,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       points_velocities.first.push_back(Point(dim));
       points_velocities.second.push_back(Vector(dim));
@@ -398,9 +398,7 @@ namespace beadpack
     points_velocities.first.reserve(nr_estimate);
     points_velocities.second.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -408,7 +406,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       points_velocities.first.push_back(Point(dim));
       points_velocities.second.push_back(Vector(dim));
@@ -449,9 +449,7 @@ namespace beadpack
     points_velocities.first.reserve(nr_estimate);
     points_velocities.second.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -459,7 +457,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       points_velocities.first.push_back(Point(dim));
       points_velocities.second.push_back(Vector(dim));
@@ -490,9 +490,7 @@ namespace beadpack
   {
     Vector mean_velocity;
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -500,7 +498,9 @@ namespace beadpack
     while (getline(file, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       
       for (std::size_t ii = 0; ii < split_line.size(); ++ii)
         mean_velocity.push_back(std::stod(split_line[ii]));
@@ -508,61 +508,6 @@ namespace beadpack
     file.close();
     
     return mean_velocity;
-  }
-  
-  // Add periodic velocity point images outside domain
-  // if the projection of a point is within a given fraction of
-  // the boundary along each symmetry plane, add an image along that plane
-  template
-  <typename Points = std::vector<std::vector<double>>,
-   typename Velocities = std::vector<std::vector<double>>,
-   typename Boundary_Periodic>
-  void add_periodic_images
-  (Points& points, Velocities& velocities,
-   double fraction, Boundary_Periodic const& boundary_periodic)
-  {
-    std::size_t nr_points = points.size();
-    if (nr_points == 0)
-      return;
-    
-    std::size_t dim = points.back().size();
-    std::vector<std::vector<int>>
-      projections_forward(dim, std::vector<int>(dim));
-    std::vector<std::vector<int>>
-      projections_backward(dim, std::vector<int>(dim));
-    for (std::size_t dd = 0; dd < dim; ++dd)
-    {
-      projections_forward[dd][dd] = 1.;
-      projections_backward[dd][dd] = -1.;
-    }
-    
-    for (std::size_t pp = 0; pp < nr_points; ++pp)
-    {
-      auto projections =
-        geometry::project(points[pp],
-                          boundary_periodic.symmetry_planes,
-                          boundary_periodic.scale,
-                          boundary_periodic.origin);
-      for (std::size_t dd = 0; dd < dim; ++dd)
-      {
-        // If close to lower bound, make an image forward
-        if (projections[dd] < fraction)
-        {
-          points.push_back(points[pp]);
-          velocities.push_back(velocities[pp]);
-          boundary_periodic.translate(points.back(),
-                                      projections_forward[dd]);
-        }
-        // If close to upper bound, make an image backward
-        if (projections[dd] > 1.-fraction)
-        {
-          points.push_back(points[pp]);
-          velocities.push_back(velocities[pp]);
-          boundary_periodic.translate(points.back(),
-                                      projections_backward[dd]);
-        }
-      }
-    }
   }
 }
 

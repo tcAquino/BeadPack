@@ -17,6 +17,7 @@
 #include <vector>
 #include "Algebra/Algebra.h"
 #include "general/Constants.h"
+#include "general/useful.h"
 #include "Stochastic/Random.h"
 #include "Stochastic/CTRW/Boundary.h"
 
@@ -387,9 +388,7 @@ namespace beadpack
     std::vector<Particle> particles;
     particles.reserve(nr_particles);
     
-    std::ifstream input{ filename };
-    if (!input.is_open())
-      throw useful::open_read_error(filename);
+    auto input = useful::open_read(filename);
     for (std::size_t pp = 0; pp < nr_particles; ++pp)
     {
       auto state{ state_maker() };
@@ -417,9 +416,7 @@ namespace beadpack
     std::vector<Particle> particles;
     particles.reserve(nr_estimate);
     
-    std::ifstream input{ filename };
-    if (!input.is_open())
-      throw useful::open_read_error(filename);
+    auto input = useful::open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(input, line);
@@ -427,7 +424,9 @@ namespace beadpack
     while (getline(input, line))
     {
       std::vector<std::string> split_line;
-      boost::algorithm::split(split_line, line, boost::is_any_of(delims));
+      boost::trim_if(line, boost::is_any_of(delims+"\r"));
+      boost::algorithm::split(split_line, line, boost::is_any_of(delims),
+                              boost::token_compress_on);
       auto state{ state_maker() };
       for (std::size_t dd = 0; dd < state.position.size(); ++dd)
         state.position[dd] = std::stod(split_line[dd]);

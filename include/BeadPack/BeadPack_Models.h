@@ -164,7 +164,7 @@ namespace beadpack
       }
     
     if constexpr (add_periodic_images)
-      beadpack::add_periodic_images(points_velocities.first,
+      geometry::add_periodic_images(points_velocities.first,
                                     points_velocities.second,
                                     fraction_domain_image_periodic,
                                     boundary_periodic);

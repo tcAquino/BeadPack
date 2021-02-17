@@ -193,11 +193,8 @@ int main(int argc, const char * argv[])
       operation::div_scalar_InPlace(mean_velocity, particles.size());
       std::cout << "\t\tDone!\n";
       
-      std::string mean_velocity_filename = output_dir + "/" + "mean_velocity"
-        + "_" + data_set + "_" + params_samples + ".dat";
-      std::ofstream output{ mean_velocity_filename };
-      if (!output.is_open())
-        throw useful::open_write_error(mean_velocity_filename);
+      auto output = useful::open_write(output_dir + "/" + "mean_velocity"
+        + "_" + data_set + "_" + params_samples + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       useful::print(output, mean_velocity);
@@ -228,12 +225,9 @@ int main(int argc, const char * argv[])
       std::cout << "\t\tDone!\n";
       
       mean_velocity_magnitude /= particles.size();
-      std::string mean_velocity_magnitude_filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "mean_velocity_magnitude" + "_"
-        + data_set + "_" + params_samples + ".dat";
-      std::ofstream output{ mean_velocity_magnitude_filename };
-      if (!output.is_open())
-        throw useful::open_write_error(mean_velocity_magnitude_filename);
+        + data_set + "_" + params_samples + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       output << mean_velocity_magnitude << "\n";
@@ -245,11 +239,8 @@ int main(int argc, const char * argv[])
     {
       std::cout << "Computing porosity...\n";
       double porosity = bead_pack.compute_porosity(geometry.boundaries, nr_samples);
-      std::string filename = output_dir + "/" + "porosity" + "_" + data_set + "_"
-        + params_samples + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(output_dir + "/" + "porosity" + "_" + data_set + "_"
+        + params_samples + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       output << porosity << "\n";
@@ -262,18 +253,15 @@ int main(int argc, const char * argv[])
       std::cout << "Computing tortuosity...\n";
       
       std::cout << "\tImporting mean velocity...\n";
-      std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tSetting up trajectories...\n";
@@ -300,11 +288,8 @@ int main(int argc, const char * argv[])
       std::cout << "\t\tDone!\n";
       
       double tortuosity = mean_velocity_magnitude/mean_velocity_downstream;
-      std::string filename = output_dir + "/" + "tortuosity"
-        + "_" + data_set + "_" + params_samples + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(output_dir + "/" + "tortuosity"
+        + "_" + data_set + "_" + params_samples + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       output << tortuosity << "\n";
@@ -321,12 +306,9 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
 
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_samples_uniform_unit_cell"
-        + "_" + data_set + "_" + params_samples + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_samples + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       
@@ -356,12 +338,10 @@ int main(int argc, const char * argv[])
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       double distance_max = measure_max*geometry.domain_side;
@@ -398,17 +378,13 @@ int main(int argc, const char * argv[])
                 << " trajectories discarded\n";
       
       
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_mean_space_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_no_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_no_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       useful::print(output, velocity_mean);
-      output << "\t" << surviving_trajectories;
-      output << "\n";
+      output << "\t" << surviving_trajectories << "\n";
       output.close();
       std::cout << "\tDone!\n";
       break;
@@ -418,18 +394,15 @@ int main(int argc, const char * argv[])
       std::cout << "Computing time-Lagrangian velocity magnitude mean...\n";
       
       std::cout << "\tImporting mean velocity...\n";
-      std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tSetting up trajectories...\n";
@@ -467,17 +440,13 @@ int main(int argc, const char * argv[])
       std::cout << "\t" << nr_samples - surviving_trajectories
                 << " trajectories discarded\n";
       
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_mean_time_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_no_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_no_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       useful::print(output, velocity_mean);
-      output << "\t" << surviving_trajectories;
-      output << "\n";
+      output << "\t" << surviving_trajectories << "\n";
       output.close();
       std::cout << "\tDone!\n";
       break;
@@ -493,13 +462,11 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      std::cout << "\tImporting mean velocity magnitude...\n";;
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       std::vector<double> velocity_autocorrelation(distances.size());
@@ -538,12 +505,9 @@ int main(int argc, const char * argv[])
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
                 << " trajectories discarded\n";
       
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_autocorrelation_space_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t ss = 0; ss < distances.size(); ++ss)
@@ -559,18 +523,15 @@ int main(int argc, const char * argv[])
       std::cout << "Computing time-Lagrangian velocity magnitude autocorrelation...\n";
       
       std::cout << "\tImporting mean velocity...\n";
-      std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       std::vector<double> times
@@ -617,12 +578,9 @@ int main(int argc, const char * argv[])
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
                 << " trajectories discarded\n";
       
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_autocorrelation_time_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t tt = 0; tt < times.size(); ++tt)
@@ -640,12 +598,10 @@ int main(int argc, const char * argv[])
         = range::linspace(0., measure_max*geometry.domain_side, nr_measures);
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
 
       std::cout << "\tSetting up trajectories...\n";
@@ -702,12 +658,9 @@ int main(int argc, const char * argv[])
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
                 << " trajectories discarded\n";
 
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_fluctuations_autocorrelation_space_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t ss = 0; ss < distances.size(); ++ss)
@@ -723,18 +676,15 @@ int main(int argc, const char * argv[])
       std::cout << "Computing time-Lagrangian velocity magnitude fluctuations autocorrelation...\n";
       
       std::cout << "\tImporting mean velocity...\n";
-      std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       std::vector<double> times
@@ -791,12 +741,9 @@ int main(int argc, const char * argv[])
       std::cout << "\t" << nr_samples - surviving_trajectories.back()
                 << " trajectories discarded\n";
 
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_fluctuations_autocorrelation_time_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       for (std::size_t tt = 0; tt < times.size(); ++tt)
@@ -814,12 +761,10 @@ int main(int argc, const char * argv[])
         = range::linspace(0., measure_max*geometry.domain_side, nr_measures);
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tSetting up trajectories...\n";
@@ -827,12 +772,9 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
 
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_series_space_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       
@@ -874,7 +816,6 @@ int main(int argc, const char * argv[])
       }
       std::cout << "\t" << nr_samples - surviving_trajectories
                 << " trajectories discarded\n";
-      
       output.close();
       std::cout << "\tDone!\n";
       break;
@@ -884,21 +825,18 @@ int main(int argc, const char * argv[])
       std::cout << "Computing time-Lagrangian velocity magnitude series...\n";
       
       std::cout << "\tImporting mean velocity...\n";
-      std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
       std::vector<double> times
         = range::linspace(0., measure_max*geometry.domain_side/operation::abs(mean_velocity),
                           nr_measures);
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
-      std::string mean_velocity_magnitude_filename = input_dir + "/" + "mean_velocity_magnitude.dat";
-      std::ifstream input{ mean_velocity_magnitude_filename };
-      if (!input.is_open())
-        throw useful::open_read_error(mean_velocity_magnitude_filename);
+      auto input = useful::open_read(input_dir + "/" + "mean_velocity_magnitude.dat");
       double mean_velocity_magnitude;
       input >> mean_velocity_magnitude;
+      input.close();
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tSetting up trajectories...\n";
@@ -906,12 +844,9 @@ int main(int argc, const char * argv[])
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
-      std::string filename = output_dir + "/"
+      auto output = useful::open_write(output_dir + "/"
         + "velocity_magnitude_series_time_lagrangian"
-        + "_" + data_set + "_" + params_lagrangian_measures + ".dat";
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+        + "_" + data_set + "_" + params_lagrangian_measures + ".dat");
       output << std::setprecision(12)
              << std::scientific;
       

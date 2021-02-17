@@ -50,6 +50,7 @@ namespace useful
       string.substr(string.size() - suffix.size()) == suffix;
   }
   
+  
   std::vector<std::string> split
   (std::string const& string, std::string const& delimiter = " ",
    bool empty_entries = false)
@@ -123,6 +124,24 @@ namespace useful
   auto bad_parameters()
   {
     return std::invalid_argument{ "Inappropriate parameters" };
+  }
+  
+  std::ifstream open_read(std::string const& filename)
+  {
+    std::ifstream file(filename);
+    if (!file.is_open())
+      throw useful::open_read_error(filename);
+    
+    return file;
+  }
+  
+  std::ofstream open_write(std::string const& filename)
+  {
+    std::ofstream file(filename);
+    if (!file.is_open())
+      throw useful::open_write_error(filename);
+    
+    return file;
   }
   
   //Load 1-column file into vectors of doubles

@@ -130,9 +130,8 @@ int main(int argc, const char * argv[])
   std::cout << "\tDone!\n";
 
   std::cout << "Importing mean velocity...\n";
-  std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
   std::vector<double> mean_velocity
-    = beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+    = beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
   double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
@@ -219,17 +218,13 @@ int main(int argc, const char * argv[])
   std::string params = stream.str();
   
   std::string filename_output_mass_base = "Data_beadpack_reactive_mass";
-  
   std::string filename_output_mass_time = output_dir + "/" +
     filename_output_mass_base + "_time_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";
-  
   std::string filename_output_mass_space = output_dir + "/" +
     filename_output_mass_base + "_space_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";
-  
   std::string filename_output_postions_base = "Data_beadpack_reactive_positions";
-  
   std::string filename_output_positions = output_dir + "/" +
     filename_output_postions_base + "_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";

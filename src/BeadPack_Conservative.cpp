@@ -117,9 +117,8 @@ int main(int argc, const char * argv[])
   std::cout << "\tDone!\n";
   
   std::cout << "Importing mean velocity...\n";
-  std::string mean_velocity_filename = input_dir + "/" + "mean_velocity.dat";
   std::vector<double> mean_velocity
-    = beadpack::get_mean_velocity(geometry.dim, mean_velocity_filename);
+    = beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
   double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
@@ -239,9 +238,7 @@ int main(int argc, const char * argv[])
   {
     case 0:
     {
-      std::ofstream output_positions{ filename_output_positions };
-      if (!output_positions.is_open())
-        throw useful::open_write_error(filename_output_positions);
+      auto output_positions = useful::open_write(filename_output_positions);
       output_positions << std::setprecision(8)
                        << std::scientific;
       
@@ -262,9 +259,7 @@ int main(int argc, const char * argv[])
     }
     case 1:
     {
-      std::ofstream output_positions{ filename_output_positions };
-      if (!output_positions.is_open())
-        throw useful::open_write_error(filename_output_positions);
+      auto output_positions = useful::open_write(filename_output_positions);
       output_positions << std::setprecision(8)
                        << std::scientific;
       
