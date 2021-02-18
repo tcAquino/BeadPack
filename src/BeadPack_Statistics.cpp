@@ -634,8 +634,6 @@ int main(int argc, const char * argv[])
             double distance_increment = operation::abs(operation::minus(getter_position(part),
               getter_position_old(part)));
             velocity = distance_increment/transitions.time_step();
-            if (velocity < velocity_cutoff)
-              break;
             distance_traveled += distance_increment;
             velocity_mean[pp] += velocity*distance_increment;
           }
