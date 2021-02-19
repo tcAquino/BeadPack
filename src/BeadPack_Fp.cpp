@@ -43,7 +43,7 @@ int main(int argc, const char * argv[])
               << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
               << "measure_type : 0 - First passage times and distances (output to file)\n"
               << "               1 - Mean first passage time and distance (output to console)\n"
-              << "initial_condition_type : 0 - Uniformly random in the void space a plane\n"
+              << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
               << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"

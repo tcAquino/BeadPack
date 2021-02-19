@@ -43,8 +43,15 @@ int main(int argc, const char * argv[])
               << "         and diffusion coefficient\n"
               << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
               << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
+              << "time_max_diffusion_times : Minimum output time in units of diffusion time\n"
               << "time_max_diffusion_times : Maximum output time in units of diffusion time\n"
-              << "initial_condition_type : 0 - Uniformly random in the void space a plane\n"
+              << "nr_measures : Number of measurements\n"
+              << "measure_spacing : 0 - Logarithmic spacing between measurements\n"
+              << "                : 1 - Linear spacing between measurements\n"
+              << "measure_type : 0 - Output reaction map at final time only\n"
+              << "             : 1 - Output reaction map\n"
+              << "             : 2 - Output particle position, particle masses, and reaction map\n"
+              << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
               << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"
@@ -69,7 +76,7 @@ int main(int argc, const char * argv[])
     return 0;
   }
 
-  if (argc < 13)
+  if (argc < 17)
     throw useful::bad_parameters();
 
   using State = ctrw::State_periodic<std::vector<double>,
@@ -86,7 +93,11 @@ int main(int argc, const char * argv[])
   double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
+  double time_min_diffusion_times = atof(argv[arg++]);
   double time_max_diffusion_times = atof(argv[arg++]);
+  std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
+  int measure_spacing = atoi(argv[arg++]);
+  int measure_type = atoi(argv[arg++]);
   int initial_condition_type = atoi(argv[arg++]);
   double initial_condition_size_domains = atof(argv[arg++]);
   double initial_mass = atof(argv[arg++]);
@@ -166,10 +177,18 @@ int main(int argc, const char * argv[])
   std::cout << "\tDone!\n";
 
   std::cout << "Setting up output...\n";
-  std::size_t check_progress_times = 50;
+  double time_min = time_min_diffusion_times*diffusion_time;
   double time_max = time_max_diffusion_times*diffusion_time;
-  double time_min = time_max/check_progress_times;
-  std::vector<double> measure_times = range::logspace(time_min, time_max, check_progress_times);
+  std::vector<double> measure_times;
+  switch (measure_spacing)
+  {
+    case 0:
+      measure_times = range::logspace(time_min, time_max, nr_measures);
+    case 1:
+      measure_times = range::linspace(time_min, time_max, nr_measures);
+    default:
+      useful::bad_parameters();
+  }
 
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
@@ -179,17 +198,13 @@ int main(int argc, const char * argv[])
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
          << time_max_diffusion_times << "_"
+         << nr_measures << "_"
          << nr_bins_angle << "_"
          << nr_particles << "_"
          << run_nr;
   std::string params = stream.str();
 
   std::string filename_output_map_base = "Data_beadpack_reactive_reactionmap";
-
-  std::string filename_output_map = output_dir + "/" +
-    filename_output_map_base + "_" + initial_condition_name +
-    "_" + data_set + "_" + params + ".dat";
-
   std::cout << "\tDone!\n";
 
   std::cout << "Setting up dynamics...\n";
@@ -230,14 +245,99 @@ int main(int argc, const char * argv[])
   std::cout << "\tDiscretization length = " << length_discretization << "\n";
   std::cout << "\tNr of particles = " << ptrw.size() << "\n";
 
-  for (auto const& time : measure_times)
+  switch (measure_type)
   {
-    ptrw.evolve(time);
-    std::cout << "time = " << time
-              << "\ttime_last_measure = " << time_max
-              << "\n";
+    case 0:
+    {
+      std::string filename_output_map = output_dir + "/" +
+        filename_output_map_base + "_" + initial_condition_name +
+        "_" + data_set + "_" + params + ".dat";
+      for (auto const& time : measure_times)
+      {
+        ptrw.evolve(time);
+        std::cout << "time = " << time
+                  << "\ttime_last_measure = " << time_max
+                  << "\n";
+      }
+      reaction.print_map(filename_output_map);
+    }
+    case 1:
+    {
+      std::string filename_output_map_params = output_dir + "/" +
+        filename_output_map_base + "_" + initial_condition_name +
+        "_" + data_set + "_" + params + "_";
+      std::size_t measure = 0;
+      for (auto const& time : measure_times)
+      {
+        std::stringstream file;
+        file << measure++;
+        std::string filename_output_map = filename_output_map_params + file.str() + ".dat";
+        ptrw.evolve(time);
+        reaction.print_map(filename_output_map);
+        std::cout << "time = " << time
+                  << "\ttime_last_measure = " << time_max
+                  << "\n";
+      }
+      std::string filename_time = output_dir + "/" +
+        "Data_beadpack_reactive_reactionmap_time" + "_" + initial_condition_name +
+        "_" + data_set + "_" + params + ".dat";
+      auto output_time = useful::open_write(filename_time);
+      output_time << std::scientific << std::setprecision(8);
+      useful::print(output_time, measure_times);
+      output_time << "\n";
+    }
+    case 2:
+    {
+      std::string filename_output_map_params = output_dir + "/" +
+        filename_output_map_base + "_" + initial_condition_name +
+        "_" + data_set + "_" + params + "_";
+      std::string filename_output_position_params = output_dir + "/" +
+        "Data_beadpack_reactive_reactionmap_position" + "_" + initial_condition_name +
+        "_" + data_set + "_" + params + "_";
+      std::string filename_output_mass_params = output_dir + "/" +
+        "Data_beadpack_reactive_reactionmap_mass" + "_" + initial_condition_name +
+        "_" + data_set + "_" + params + "_";
+      
+      auto getter_position = ctrw::Get_new_from_particle{
+        ctrw::Get_position_periodic{ boundaries.boundary_periodic } };
+      auto getter_mass = ctrw::Get_new_from_particle{
+        ctrw::Get_mass{} };
+      
+      std::size_t measure = 0;
+      for (auto const& time : measure_times)
+      {
+        std::stringstream file;
+        file << measure++;
+        std::string filename_output_map = filename_output_map_params + file.str() + ".dat";
+        std::string filename_output_position = filename_output_position_params + file.str() + ".dat";
+        std::string filename_output_mass = filename_output_mass_params + file.str() + ".dat";
+        ptrw.evolve(time);
+        reaction.print_map(filename_output_map);
+        auto output_position = useful::open_write(filename_output_position);
+        output_position << std::scientific << std::setprecision(8);
+        auto output_mass = useful::open_write(filename_output_mass);
+        output_mass << std::scientific << std::setprecision(8);
+        for (auto const& part : ptrw.particles())
+        {
+          useful::print(output_position, getter_position(part));
+          output_position << "\n";
+          output_mass << getter_mass(part) << "\n";
+        }
+        std::cout << "time = " << time
+                  << "\ttime_last_measure = " << time_max
+                  << "\n";
+      }
+      std::string filename_time = output_dir + "/" +
+        "Data_beadpack_reactive_reactionmap_time" + "_" + initial_condition_name +
+        "_" + data_set + "_" + params + ".dat";
+      auto output_time = useful::open_write(filename_time);
+      output_time << std::scientific << std::setprecision(8);
+      useful::print(output_time, measure_times);
+      output_time << "\n";
+    }
+    default:
+      useful::bad_parameters();
   }
-  reaction.print_map(filename_output_map);
 
   std::cout << "\tDone!\n";
 

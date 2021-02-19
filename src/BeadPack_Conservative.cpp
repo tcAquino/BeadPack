@@ -47,7 +47,7 @@ int main(int argc, const char * argv[])
               << "measure_type : 0 - Output time and all particle positions per file line,\n"
               << "                   at each measurement time\n"
               << "               1 - Output particle positions, one per file line, at final time only\n"
-              << "initial_condition_type : 0 - Uniformly random in the void space a plane\n"
+              << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
               << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"

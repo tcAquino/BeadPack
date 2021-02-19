@@ -55,7 +55,7 @@ int main(int argc, const char * argv[])
               << "               4 - Positions as a function of time (file columns: time positions)\n"
               << "               5 - Mass as a function of time (file columns: time mass)\n"
               << "                   and positions as a function of time (file columns: time positions)\n"
-              << "initial_condition_type : 0 - Uniformly random in the void space a plane\n"
+              << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
               << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"
