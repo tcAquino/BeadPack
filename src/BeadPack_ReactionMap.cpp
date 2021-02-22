@@ -323,6 +323,8 @@ int main(int argc, const char * argv[])
           output_position << "\n";
           output_mass << getter_mass(part) << "\n";
         }
+        output_position.close();
+        output_mass.close();
         std::cout << "time = " << time
                   << "\ttime_last_measure = " << time_max
                   << "\n";
@@ -334,6 +336,7 @@ int main(int argc, const char * argv[])
       output_time << std::scientific << std::setprecision(8);
       useful::print(output_time, measure_times);
       output_time << "\n";
+      output_time.close();
     }
     default:
       useful::bad_parameters();

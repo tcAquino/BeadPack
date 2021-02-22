@@ -333,6 +333,7 @@ namespace ctrw
                  << map_phi_theta[ii][jj] << "\n";
         }
       }
+      output.close();
     }
     
   private:
