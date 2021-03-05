@@ -294,7 +294,8 @@ int main(int argc, const char * argv[])
       while (measurer_mass_space.count(nr_measures-1) < nr_particles)
       {
         ptrw.step([&measurer_mass_space, nr_measures](CTRW::Particle const& part)
-                  { return measurer_mass_space.crossed(nr_measures-1, part.state_new().tag); });
+                  { return !measurer_mass_space.crossed(nr_measures-1,
+                                                        part.state_new().tag); });
         measurer_mass_space.update(ptrw, getter_mass, getter_position_longitudinal);
         if (measurer_mass_space.count(fully_crossed) == nr_particles)
           std::cout << "Fully crossed "
@@ -324,7 +325,8 @@ int main(int argc, const char * argv[])
       while (count_finished < nr_particles)
       {
         ptrw.step([&measurer_mass_space, nr_measures](CTRW::Particle const& part)
-                  { return measurer_mass_space.crossed(nr_measures-1, part.state_new().tag); });
+                  { return !measurer_mass_space.crossed(nr_measures-1,
+                                                        part.state_new().tag); });
         measurer_mass_space.update(ptrw, getter_mass, getter_position_longitudinal);
         
         if (measurer_mass_space.count(nr_measures-1) > count_finished)
