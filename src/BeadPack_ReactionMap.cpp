@@ -34,7 +34,7 @@ int main(int argc, const char * argv[])
     std::cout << "Fluid-phase mass consumed as a function of angle on bead surface\n"
               << "for advective-diffusive particle tracking in 3d beadpacks\n"
               << "with periodic boundary conditions and\n"
-              << "decay reaction at constant rate at the bead interfaces.\n"
+              << "decay reaction at constant rate on the bead surfaces.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"
               << "damkohler : Damkohler number in terms of domain side, reaction rate at interface,\n"

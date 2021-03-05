@@ -33,7 +33,7 @@ int main(int argc, const char * argv[])
   {
     std::cout << "Advective-diffusive particle tracking in 3d beadpacks\n"
               << "with periodic boundary conditions and\n"
-              << "decay reaction at constant rate at the bead interfaces.\n"
+              << "decay reaction at constant rate on the bead surfaces.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"
               << "damkohler : Damkohler number in terms of domain side, reaction rate at interface,\n"
@@ -74,8 +74,8 @@ int main(int argc, const char * argv[])
               << "           (and model name identifier for output files)\n"
               << "filename_input_positions : Filename to read positions from\n"
               << "                           for initial_condition_type = 8 []\n"
-              << "input_dir_base : Path to look for input data [../input]\n"
-              << "output_dir : Path folder to output to [../output]\n";
+              << "input_dir_base : Path for input [../input]\n"
+              << "output_dir : Path for output [../output]\n";
     return 0;
   }
   

@@ -535,7 +535,7 @@ namespace ctrw
     }
 
     // Get number of stored values at the mmth crossing value
-    std::size_t size(std::size_t mm) const
+    std::size_t count(std::size_t mm) const
     { return values[mm].size(); }
     
     // Get stored values

@@ -52,8 +52,8 @@ int main(int argc, const char * argv[])
               << "           (and model name identifier for output files)\n"
               << "filename_input_positions : Filename to read positions from\n"
               << "                           for initial_condition_type = 8 []\n"
-              << "input_dir_base : Path to look for input data [../input]\n"
-              << "output_dir : Path folder to output to [../output]\n";
+              << "input_dir_base : Path for input [../input]\n"
+              << "output_dir : Path for output [../output]\n";
     return 0;
   }
   

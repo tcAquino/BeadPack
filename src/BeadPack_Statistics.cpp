@@ -59,8 +59,8 @@ int main(int argc, const char * argv[])
                  "                                     or maximum time in units of\n"
               << "                                     advection time\n"
               << "(if measure_type >= 7) nr_measures : Number of measurements along streamlines\n"
-              << "input_dir_base : Path to look for input data [../input]\n"
-              << "output_dir : Path folder to output to [../output]\n";
+              << "input_dir_base : Path for input [../input]\n"
+              << "output_dir : Path for output [../output]\n";
     return 0;
   }
   
