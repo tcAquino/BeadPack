@@ -176,10 +176,11 @@ int main(int argc, const char * argv[])
     filename_output_base + "_space_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";
   
-  auto getter_position_longitudinal = ctrw::Get_projection{
-    ctrw::Get_position_periodic{
-    boundaries.boundary_periodic
-    }, mean_velocity };
+  auto getter_position_longitudinal = ctrw::Get_new_from_particle{
+    ctrw::Get_projection{
+      ctrw::Get_position_periodic{
+        boundaries.boundary_periodic },
+      mean_velocity } };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up dynamics...\n";
@@ -227,11 +228,14 @@ int main(int argc, const char * argv[])
         std::cout << "Measure " << pp+1 << " of " << nr_measures << "\n";
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
-        while (!near_wall(ptrw.particles(0).state_new()))
+        auto& part = ptrw.particles(0);
+        double initial_position = getter_position_longitudinal(part);
+        while (!near_wall(part.state_new()))
           ptrw.step();
         output_time << delimiter << ptrw.time();
         output_space << delimiter
-                     << getter_position_longitudinal(ptrw.particles(0).state_new());
+                     << getter_position_longitudinal(part)
+                        - initial_position;
         delimiter = "\t";
       }
       output_time << "\n";
@@ -247,16 +251,16 @@ int main(int argc, const char * argv[])
       double mean_fpt = 0.;
       double mean_fpd = 0.;
       
-      for (std::size_t pp = 0; pp < particles.size();)
+      for (std::size_t pp = 0; pp < particles.size(); ++pp)
       {
         CTRW ctrw{ { particles[pp] }, CTRW::Tag{} };
         ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
-        while (!near_wall(ptrw.particles(0).state_new()))
+        auto& part = ptrw.particles(0);
+        double initial_position = getter_position_longitudinal(part);
+        while (!near_wall(part.state_new()))
           ptrw.step();
-      
         mean_fpt += ptrw.time();
-        mean_fpd += getter_position_longitudinal(ptrw.particles(0).state_new());
-        ++pp;
+        mean_fpd += getter_position_longitudinal(part)-initial_position;
         
         std::cout << std::setprecision(8) << std::scientific ;
         std::cout << "Mean fpt = " << mean_fpt/nr_measures << "\n";

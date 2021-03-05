@@ -349,8 +349,8 @@ namespace boundary
     {
       if (!outOfBounds(state.position))
         return false;
-      state.position[1] +=
-        boundary::reflecting(state.position[1], boundaries);
+      state.position[dd] +=
+        boundary::reflecting(state.position[dd], boundaries);
       return true;
     }
   };

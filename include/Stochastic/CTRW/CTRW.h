@@ -166,7 +166,7 @@ namespace ctrw
         part.transition(transitions_particle);
     }
     
-    // Each particle makes one transition if criteritum is satisfied
+    // Each particle for which criterium is satisfied makes one transition
     template<typename Transitions_Particle, typename Criterium>
     void step(Criterium criterium, Transitions_Particle& transitions_particle)
     {

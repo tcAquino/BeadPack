@@ -633,7 +633,7 @@ namespace ctrw
     }
     
     // Number of crossings for mmth crossing value
-    std::size_t counts(std::size_t mm) const
+    std::size_t count(std::size_t mm) const
     { return nr_counts[mm]; }
     
     // Get stored totals for each crossing
@@ -733,7 +733,7 @@ namespace ctrw
     }
 
     // Get number of particles that have crossed mmth crossing value
-    std::size_t size(std::size_t mm) const
+    std::size_t count(std::size_t mm) const
     { return values[mm].size(); }
     
     // Get stored values
@@ -832,7 +832,7 @@ namespace ctrw
              mm < current_crossed - std::begin(crossing_values); ++mm)
           if (particles_crossed[mm].insert(part.state_new().tag).second)
           {
-            if (counts(mm) == 1)
+            if (count(mm) == 1)
               values[mm] = get(part);
             else
               operation::plus_InPlace(values[mm], get(part));
@@ -841,7 +841,7 @@ namespace ctrw
     }
     
     // Get number of particles that have crossed mmth crossing value
-    std::size_t counts(std::size_t mm) const
+    std::size_t count(std::size_t mm) const
     { return particles_crossed[mm].size(); }
     
     // Get stored totals for each crossing value
@@ -936,7 +936,7 @@ namespace ctrw
     }
     
     // Get stored number of returns
-    std::size_t counts() const
+    std::size_t count() const
     { return values.size(); }
     
     // Get stored return value changes

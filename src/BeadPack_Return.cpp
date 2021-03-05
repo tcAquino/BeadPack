@@ -139,10 +139,11 @@ int main(int argc, const char * argv[])
   std::string filename_output_space = output_dir +
     filename_output_base + "_space_" + data_set + "_" + params + ".dat";
   
-  auto getter_position_longitudinal = ctrw::Get_projection{
-    ctrw::Get_position_periodic{
-    boundaries.boundary_periodic
-    }, mean_velocity };
+  auto getter_position_longitudinal = ctrw::Get_new_from_particle{
+    ctrw::Get_projection{
+      ctrw::Get_position_periodic{
+        boundaries.boundary_periodic },
+    mean_velocity } };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up dynamics...\n";
@@ -163,6 +164,7 @@ int main(int argc, const char * argv[])
       boundaries.boundary_reflecting_periodic
   };
   ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
+  auto& part = ptrw.particles(0);
   std::cout << "\tDone!\n";
   
   std::cout << "Starting dynamics...\n";
@@ -185,19 +187,19 @@ int main(int argc, const char * argv[])
   for (std::size_t pp = 0; pp < nr_measures; ++pp)
   {
     double start_time = ptrw.time();
-    double start_position = getter_position_longitudinal(ptrw.particles(0).state_new());
+    double start_position = getter_position_longitudinal(part);
     std::cout << "Measure " << pp+1 << " of " << nr_measures << "\n";
-    while (!near_wall(ptrw.particles(0).state_new()))
+    while (!near_wall(part.state_new()))
       ptrw.step();
     output_time << delimiter << ptrw.time()-start_time;
     output_space << delimiter
-                 << getter_position_longitudinal(ptrw.particles(0).state_new()) - start_position;
+                 << getter_position_longitudinal(part) - start_position;
     delimiter = "\t";
     
     while (1)
     {
       // Place the particle at distance 2*length_discretization from nearest interface
-      auto state = ptrw.particles(0).state_new();
+      auto state = part.state_new();
       std::size_t bead
         = bead_pack.place_at_closest_surface(state, boundaries.boundary_periodic);
       double radius = bead_pack.radius(bead);

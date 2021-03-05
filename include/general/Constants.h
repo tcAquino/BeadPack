@@ -12,10 +12,9 @@
 
 namespace constants
 {
-	static const double pi = 4. * std::atan( 1. );
-	static const double gravity = 9.80665;
-	static const double von_karman = 0.4;
+	const double pi = 4.*std::atan(1.);
+	const double gravity = 9.80665;
+	const double von_karman = 0.4;
 }
-
 
 #endif /* CONSTANTS_H_ */

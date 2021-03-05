@@ -50,7 +50,7 @@ int main(int argc, const char * argv[])
               << "                : 1 - Linear spacing between measurements\n"
               << "measure_type : 0 - Output reaction map at final time only\n"
               << "             : 1 - Output reaction map\n"
-              << "             : 2 - Output particle position, particle masses, and reaction map\n"
+              << "             : 2 - Output particle positions, particle masses, and reaction map\n"
               << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in the periodic domain\n"

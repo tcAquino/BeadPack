@@ -206,22 +206,23 @@ namespace ctrw
 	class Transitions_PTRW_FlowField_Diff
 	{
   private:
-    auto make_diff_generators(std::vector<double> const& diff, double dt)
+    auto make_diff_generators
+    (std::vector<double> const& diff, double timestep)
     {
       std::vector<JumpGenerator_Diffusion_1d> diff_generators;
       diff_generators.reserve(diff.size());
       for (auto const& diff_val : diff)
-        diff_generators.emplace_back(diff_val, dt);
+        diff_generators.emplace_back(diff_val, timestep);
 
       return diff_generators;
     }
     
 	public:
     Transitions_PTRW_FlowField_Diff
-    (std::vector<double> const& diff, double dt,
+    (std::vector<double> const& diff, double timestep,
      FlowField&& flow_field, Boundary&& boundary = {})
-    : time_generator{ dt }
-    , diff_generators{ make_diff_generators(diff, dt) }
+    : time_generator{ timestep }
+    , diff_generators{ make_diff_generators(diff, timestep) }
     , flow_field{ std::forward<FlowField>(flow_field) }
     , boundary{ std::forward<Boundary>(boundary) }
 		{}
@@ -241,17 +242,17 @@ namespace ctrw
 			boundary(state, state_old);
 		}
 
-		void timestep(double time_step)
+		void time_step(double timestep)
 		{
-      time_generator.time_step(time_step);
+      time_generator.time_step(timestep);
       for (auto& gen : diff_generators)
-        gen.time_step(time_step);
+        gen.time_step(timestep);
     }
 
     void diff(std::size_t dd, double diff)
     { return diff_generators[dd].diff(diff); }
 
-    double timestep() const
+    double time_step() const
     { return time_generator.time_step(); }
 
     double diff(std::size_t dd) const
@@ -278,9 +279,9 @@ namespace ctrw
   {
   public:
     Transitions_PTRW_Diffusion_1d
-    (double diff, double time_step, Boundary&& boundary = {})
-    : time_generator{ time_step }
-    , jump_generator{ diff, time_step }
+    (double diff, double timestep, Boundary&& boundary = {})
+    : time_generator{ timestep }
+    , jump_generator{ diff, timestep }
     , boundary{ std::forward<Boundary>(boundary) }
     {}
 
@@ -290,19 +291,19 @@ namespace ctrw
       auto state_old = state;
       state.position += jump_generator(state);
       boundary(state, state_old);
-      state.time += timestep();
+      state.time += time_step();
     }
 
-    void timestep(double time_step)
+    void time_step(double timestep)
     {
-      time_generator.time_step(time_step);
-      jump_generator.time_step(time_step);
+      time_generator.time_step(timestep);
+      jump_generator.time_step(timestep);
     }
 
     void diff(double diff)
     { return jump_generator.diff(diff); }
 
-    double timestep() const
+    double time_step() const
     { return time_generator.time_step(); }
 
     double diff() const
@@ -332,38 +333,38 @@ namespace ctrw
     : transitions_transport{
       std::forward<Transitions_Transport>(transitions_transport) }
     , reaction{ std::forward<Reaction>(reaction) }
-    , time_step{ transitions_transport.timestep() }
+    , timestep{ transitions_transport.time_step() }
     {}
     
     Transitions_PTRW_Transport_Reaction
     (Transitions_Transport&& transitions_transport,
-     Reaction reaction, double time_step)
+     Reaction reaction, double timestep)
     : transitions_transport{
       std::forward<Transitions_Transport>(transitions_transport) }
     , reaction{ std::forward<Reaction>(reaction) }
-    , time_step{ time_step }
+    , timestep{ timestep }
     {}
 
     template <typename State>
     void operator()(State& state)
     {
       transitions_transport(state);
-      reaction(state, time_step);
+      reaction(state, timestep);
     }
     
-    void timestep(double time_step)
+    void time_step(double timestep)
     {
-      transitions_transport.timestep(time_step);
-      this->time_step = time_step;
+      transitions_transport.time_step(timestep);
+      this->timestep = timestep;
     }
     
-    double timestep()
-    { return time_step; }
+    double time_step()
+    { return timestep; }
 
   private:
     Transitions_Transport transitions_transport;
     Reaction reaction;
-    double time_step;
+    double timestep;
   };
   template <typename Transitions_Transport, typename Reaction>
   Transitions_PTRW_Transport_Reaction

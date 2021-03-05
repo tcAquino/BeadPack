@@ -41,7 +41,7 @@ int main(int argc, const char * argv[])
               << "peclet : Peclet number in terms of domain side, average velocity,\n"
               << "         and diffusion coefficient\n"
               << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
-              << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
+              << "time_step_accuracy_diff : Maximum time step size in units of diffusion time\n"
               << "time_min_diffusion_times : Minimum output time in units of diffusion time\n"
               << "time_max_diffusion_times : Maximum output time in units of diffusion time\n"
               << "nr_measures : Number of measurements\n"
@@ -290,13 +290,16 @@ int main(int argc, const char * argv[])
     case 1:
     {
       ctrw::Measurer_Store_FirstCrossing_Total measurer_mass_space{ measure_distances };
-      while (measurer_mass_space.counts(nr_measures-1) < nr_particles)
+      std::size_t fully_crossed = 0;
+      while (measurer_mass_space.count(nr_measures-1) < nr_particles)
       {
-        ptrw.step();
+        ptrw.step([&measurer_mass_space, nr_measures](CTRW::Particle const& part)
+                  { return measurer_mass_space.crossed(nr_measures-1, part.state_new().tag); });
         measurer_mass_space.update(ptrw, getter_mass, getter_position_longitudinal);
-        std::cout << "time = " << ptrw.time() << ", "
-                  << "finished " << measurer_mass_space.counts(nr_measures-1)
-                  << " of " << nr_particles << " particles\n";
+        if (measurer_mass_space.count(fully_crossed) == nr_particles)
+          std::cout << "Fully crossed "
+                    << fully_crossed++ + 1
+                    << " of " << nr_measures << " planes\n";
       }
       measurer_mass_space.print(filename_output_mass_space);
       break;
@@ -317,12 +320,19 @@ int main(int argc, const char * argv[])
                   << "\ttime_last_measure = " << measure_times[measure_times.size()-1]
                   << "\n";
       }
-      while (measurer_mass_space.counts(nr_measures-1) < nr_particles)
+      std::size_t count_finished = measurer_mass_space.count(nr_measures-1);
+      while (count_finished < nr_particles)
       {
-        ptrw.step();
+        ptrw.step([&measurer_mass_space, nr_measures](CTRW::Particle const& part)
+                  { return measurer_mass_space.crossed(nr_measures-1, part.state_new().tag); });
         measurer_mass_space.update(ptrw, getter_mass, getter_position_longitudinal);
-        std::cout << "Finished " << measurer_mass_space.counts(nr_measures-1)
-                  << " of " << nr_particles << " particles\n";
+        
+        if (measurer_mass_space.count(nr_measures-1) > count_finished)
+        {
+          std::cout << "Finished " << count_finished
+                    << " of " << nr_particles << " particles\n";
+          count_finished = measurer_mass_space.count(nr_measures-1);
+        }
       }
       measurer_mass_space.print(filename_output_mass_space);
       break;
