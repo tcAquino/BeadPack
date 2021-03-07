@@ -361,7 +361,7 @@ namespace boundary
   template <std::size_t dd_open = 0>
   class Open_RadialReflecting_3d
   {
-    static_assert(dd_open != 0 && dd_open != 2,
+    static_assert(dd_open == 0 || dd_open == 2,
                   "Cylinder axis dimension must be 0 or 2");
   public:
     const double radius;
