@@ -376,9 +376,9 @@ namespace boundary
     bool outOfBounds(Position const& position) const
     {
       double radial_pos_sq = std::inner_product(
-        position.cbegin()+begin_transverse, position.cbegin()+begin_transverse+1,
+        position.cbegin()+begin_transverse, position.cbegin()+begin_transverse+2,
         position.cbegin()+begin_transverse, 0.);
-      return radial_pos_sq > radius_sq;
+      return radial_pos_sq > radius;
     }
 
     // Enforce boundary condition
@@ -392,13 +392,13 @@ namespace boundary
       std::vector<double> jump_radial(2);
       std::vector<double> tangent_at_contact(2);
       
-      for (std::size_t dd = 0; dd < position_radial_old.size(); ++dd)
+      for (std::size_t dd = 0; dd < 2; ++dd)
       {
         jump_radial[dd] = state.position[dd+begin_transverse]
           -state_old.position[dd+begin_transverse];
         position_radial_old[dd] = state_old.position[dd+begin_transverse];
       }
-
+      
       // Iterate reflection procedure until position is inside boundary
       while (1)
       {
@@ -411,12 +411,12 @@ namespace boundary
           jump_radial.cbegin(), 0.);
         double radial_pos_sq_old = operation::abs_sq(position_radial_old);
         double aux = pos_dot_jump/norm_sq_jump;
-        double alpha = std::sqrt(aux*aux
-          + (radius_sq-radial_pos_sq_old)/norm_sq_jump) - aux;
+        double alpha = aux*(std::sqrt(1.+(radius_sq-radial_pos_sq_old)
+                                      /(aux*aux*norm_sq_jump)) - 1.);
 
         // Place old position at contact
-        for (std::size_t dd = 0; dd < position_radial_old.size(); ++dd)
-          position_radial_old[dd] += alpha * jump_radial[dd];
+        for (std::size_t dd = 0; dd < 2; ++dd)
+          position_radial_old[dd] += alpha*jump_radial[dd];
 
         // Tangent to boundary at contact
         tangent_at_contact[0] = position_radial_old[1]/radius;
@@ -432,23 +432,20 @@ namespace boundary
         double cos2 = std::cos(2.*contact_angle);
         double sin2 = std::sin(2.*contact_angle);
 
-        // Outgoing jump at collision, rotate outer jump by -phi and flip the direction
-        jump_radial[0] = (1-alpha)
-          *(cos2*jump_radial[0] + sin2*jump_radial[1]);
-        jump_radial[1] = (1-alpha)
-          *(-sin2*jump_radial[0] + cos2*jump_radial[1]);
+        // Outgoing jump at collision, rotate outer jump and flip the direction
+        jump_radial[0] = (1.-alpha)*(cos2*jump_radial[0] + sin2*jump_radial[1]);
+        jump_radial[1] = (1.-alpha)*(-sin2*jump_radial[0] + cos2*jump_radial[1]);
         
         // Place particle at reflected position
-        for (std::size_t dd = 0; dd < position_radial_old.size(); ++dd)
-          state.position[dd+begin_transverse] = position_radial_old[dd];
+        for (std::size_t dd = 0; dd < 2; ++dd)
+          state.position[dd+begin_transverse] =
+            position_radial_old[dd]+jump_radial[dd];
         
         // If inside boundary, done
-        if(std::inner_product(state.position.cbegin()+begin_transverse,
-                              state.position.cbegin()+begin_transverse+1,
-                              state.position.cbegin()+begin_transverse, 0.))
+        if(!outOfBounds(state.position))
           break;
       }
-        
+      
       return true;
     }
 
