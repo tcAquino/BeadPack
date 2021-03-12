@@ -444,6 +444,20 @@ namespace boundary
         // If inside boundary, done
         if(!outOfBounds(state.position))
           break;
+        
+        // Avoid numerical issues
+        // If jump is numerically zero, place at closest boundary, done
+        if (state.position[begin_transverse] == position_radial_old[0]
+            && state.position[1+begin_transverse] == position_radial_old[1])
+        {
+          double radial_pos_sq = std::inner_product(
+            state.position.cbegin()+begin_transverse,
+            state.position.cbegin()+begin_transverse+2,
+            state.position.cbegin()+begin_transverse, 0.);
+          for (std::size_t dd = 0; dd < 2; ++dd)
+            state.position[dd+begin_transverse] *= radius/std::sqrt(radial_pos_sq);
+          break;
+        }
       }
       
       return true;
