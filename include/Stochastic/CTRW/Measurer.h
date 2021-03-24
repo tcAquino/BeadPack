@@ -528,8 +528,9 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        for (std::size_t mm = last_crossed - std::begin(crossing_values);
-             mm < current_crossed - std::begin(crossing_values); ++mm)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_max = current_crossed - std::begin(crossing_values);
+        for (std::size_t mm = mm_min; mm < mm_max; ++mm)
           values[mm].push_back(get(part));
       }
     }
@@ -620,8 +621,9 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        for (std::size_t mm = last_crossed - std::begin(crossing_values);
-             mm < current_crossed - std::begin(crossing_values); ++mm)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_max = current_crossed - std::begin(crossing_values);
+        for (std::size_t mm = mm_min; mm < mm_max; ++mm)
         {
           if (nr_counts[mm] == 0)
             values[mm] = get(part);
@@ -725,8 +727,9 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        for (std::size_t mm = last_crossed - std::begin(crossing_values);
-             mm < current_crossed - std::begin(crossing_values); ++mm)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_max = current_crossed - std::begin(crossing_values);
+        for (std::size_t mm = mm_min; mm < mm_max; ++mm)
           if (particles_crossed[mm].insert(part.state_new().tag).second)
             values[mm].push_back(get(part));
       }
@@ -827,9 +830,9 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        
-        for (std::size_t mm = last_crossed - std::begin(crossing_values);
-             mm < current_crossed - std::begin(crossing_values); ++mm)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_max = current_crossed - std::begin(crossing_values);
+        for (std::size_t mm = mm_min; mm < mm_max; ++mm)
           if (particles_crossed[mm].insert(part.state_new().tag).second)
           {
             if (count(mm) == 1)
