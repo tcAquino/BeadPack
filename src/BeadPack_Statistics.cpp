@@ -74,7 +74,7 @@ int main(int argc, const char * argv[])
   std::cout << std::setprecision(2)
             << std::scientific;
   
-  std::size_t arg = 1;
+  int arg = 1;
   std::size_t nr_samples = strtoul(argv[arg++], NULL, 0);
   int measure_type = atoi(argv[arg++]);
   std::size_t run_nr = strtoul(argv[arg++], NULL, 0);

@@ -67,7 +67,7 @@ int main(int argc, const char * argv[])
   using JumpGenerator =
     ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
   
-  std::size_t arg = 1;
+  int arg = 1;
   std::size_t nr_strips = strtoul(argv[arg++], NULL, 0);
   std::size_t max_particles_strip = strtoul(argv[arg++], NULL, 0);
   double initial_strip_segment_length_factor = atof(argv[arg++]);
