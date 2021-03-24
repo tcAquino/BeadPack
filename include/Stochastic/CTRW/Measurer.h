@@ -528,7 +528,7 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values);
         std::size_t mm_max = current_crossed - std::begin(crossing_values);
         for (std::size_t mm = mm_min; mm < mm_max; ++mm)
           values[mm].push_back(get(part));
@@ -621,7 +621,7 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values);
         std::size_t mm_max = current_crossed - std::begin(crossing_values);
         for (std::size_t mm = mm_min; mm < mm_max; ++mm)
         {
@@ -727,7 +727,7 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values);
         std::size_t mm_max = current_crossed - std::begin(crossing_values);
         for (std::size_t mm = mm_min; mm < mm_max; ++mm)
           if (particles_crossed[mm].insert(part.state_new().tag).second)
@@ -830,7 +830,7 @@ namespace ctrw
           std::end(crossing_values), get_position(part.state_old()));
         auto current_crossed = std::lower_bound(std::begin(crossing_values),
           std::end(crossing_values), get_position(part.state_new()));
-        std::size_t mm_min = last_crossed - std::begin(crossing_values)
+        std::size_t mm_min = last_crossed - std::begin(crossing_values);
         std::size_t mm_max = current_crossed - std::begin(crossing_values);
         for (std::size_t mm = mm_min; mm < mm_max; ++mm)
           if (particles_crossed[mm].insert(part.state_new().tag).second)
