@@ -88,7 +88,7 @@ int main(int argc, const char * argv[])
   using JumpGenerator_Diffusion = ctrw::JumpGenerator_Diffusion;
   using JumpGenerator = ctrw::JumpGenerator_Add<JumpGenerator_Advection, JumpGenerator_Diffusion>;
 
-  std::size_t arg = 1;
+  int arg = 1;
   double damkohler = atof(argv[arg++]);
   double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
