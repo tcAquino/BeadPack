@@ -24,56 +24,43 @@
 namespace field
 {
   // KDTree class for nearest-neighbor searching
-  template <typename Data, std::size_t dim>
+  template <std::size_t dim>
   class KDTree
   {
-  public:
+  private:
+    using Pair = std::pair<std::size_t, double>;
+    using Point = std::vector<double>;
+    using Value = std::vector<double>;
+    using Container = std::vector<std::pair<Point,Value>>;
     using KDTreeAdaptor = nanoflann::KDTreeSingleIndexAdaptor<
       nanoflann::L2_Simple_Adaptor<double, KDTree>,
       KDTree, dim, std::size_t>;
     using KDTreeParams = nanoflann::KDTreeSingleIndexAdaptorParams;
     using SearchParams = nanoflann::SearchParams;
+    
+    Container data;
     const SearchParams kdtree_search_params;
     KDTreeAdaptor kdtree;
-    
-  private:
-    using Pair = std::pair<std::size_t, double>;
-    using Point = std::vector<double>;
-    using Value = std::vector<double>;
-    std::vector<Point> points;
-    std::vector<Value> values;
     
   public:
     // Build and set up kdtree
     // Copy of data is made
     // because CGAL interpolators use a map,
     // which is very slow for this purpose
+    template <typename Data>
     KDTree
     (Data const& data,
      SearchParams kdtree_search_params = { 32, 0., false },
      std::size_t kdtree_leaf_max_size = 10)
-    : kdtree_search_params{ kdtree_search_params }
+    : data{ get_data(data) }
+    , kdtree_search_params{ kdtree_search_params }
     , kdtree{ dim, *this, KDTreeParams{ kdtree_leaf_max_size } }
     {
-      points.reserve(data.size());
-      values.reserve(data.size());
-      for (auto const& val : data)
-      {
-        points.push_back({});
-        points.back().reserve(dim);
-        values.push_back({});
-        values.back().reserve(dim);
-        for (std::size_t dd = 0; dd < dim; ++dd)
-        {
-          points.back().push_back(val.first[int(dd)]);
-          values.back().push_back(val.second[int(dd)]);
-        }
-      }
       kdtree.buildIndex();
     }
     
     std::size_t size() const
-    { return points.size(); }
+    { return data.size(); }
     
     template <typename Position>
     Pair nearest_neighbor
@@ -99,7 +86,7 @@ namespace field
     auto nearest_neighbor_value
     (Position const& position) const
     {
-      return values[nearest_neighbor(position).first];
+      return data[nearest_neighbor(position).first].second;
     }
     
     // Methods for kdtree class
@@ -108,11 +95,32 @@ namespace field
     { return size(); }
 
     auto kdtree_get_pt(std::size_t idx, std::size_t dd) const
-    { return points[idx][dd]; }
+    { return data[idx].first[dd]; }
 
     template <class BBOX>
     bool kdtree_get_bbox(BBOX &bb) const
     { return false; }
+    
+  private:
+    template <typename Data>
+    Container get_data(Data const& data_in)
+    {
+      Container data;
+      data.reserve(data_in.size());
+      for (auto const& val : data_in)
+      {
+        data.push_back({});
+        data.back().first.reserve(dim);
+        data.back().second.reserve(dim);
+        for (std::size_t dd = 0; dd < dim; ++dd)
+        {
+          data.back().first.push_back(val.first[int(dd)]);
+          data.back().second.push_back(val.second[int(dd)]);
+        }
+      }
+      
+      return data;
+    }
   };
   
   // Template class for linear vector interpolation on unstructured grid
@@ -168,7 +176,7 @@ namespace field
     
     // Tree to find nearest neighbors when check_interpolation is on
     using Tree = typename std::conditional<check_interpolation,
-      KDTree<Coord_map, dim>, useful::Empty>::type;
+      KDTree<dim>, useful::Empty>::type;
     
   public:
     
@@ -364,7 +372,7 @@ namespace field
     
     // Tree to find nearest neighbors when check_interpolation is on
     using Tree = typename std::conditional<check_interpolation,
-      KDTree<Coord_map, dim>, useful::Empty>::type;
+      KDTree<dim>, useful::Empty>::type;
     
   public:
     // Construct object given grid points and associated vector field values
