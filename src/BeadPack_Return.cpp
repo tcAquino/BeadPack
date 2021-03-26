@@ -57,7 +57,7 @@ int main(int argc, const char * argv[])
   using State = ctrw::State_periodic<std::vector<double>,
     std::vector<int>, useful::Empty, useful::Empty, std::size_t>;
   using CTRW = ctrw::CTRW<State>;
-  using Boundary = Boundaries::Boundary_Reflecting_Periodic;
+  using Boundary = Boundaries::Boundary_Periodic;
   using JumpGenerator_Advection
     = ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
   using JumpGenerator_Diffusion = ctrw::JumpGenerator_Diffusion;
@@ -108,6 +108,9 @@ int main(int argc, const char * argv[])
   auto near_wall = [length_discretization, &bead_pack](State const& state)
   { return bead_pack.near(state.position, length_discretization).first; };
   
+  auto inside_bead = [&bead_pack](State const& state)
+  { return bead_pack.inside(state.position).first; };
+  
   auto state_maker = [&geometry]()
   { return State{
     std::vector<double>(geometry.dim),
@@ -115,7 +118,7 @@ int main(int argc, const char * argv[])
   
   CTRW ctrw{ beadpack::make_particles_random_near_wall_uniform_unit_cell<CTRW::Particle>
     (1, bead_pack, boundaries.boundary_periodic,
-     2.*length_discretization, state_maker),
+     length_discretization, state_maker),
     CTRW::Tag{} };
   std::cout << "\tDone!\n";
   
@@ -153,7 +156,7 @@ int main(int argc, const char * argv[])
           velocity_field,
           time_step,
           1,
-          boundaries.boundary_reflecting_periodic
+          boundaries.boundary_periodic
         },
         JumpGenerator_Diffusion{
           diff,
@@ -161,7 +164,7 @@ int main(int argc, const char * argv[])
           geometry.dim
         }
       },
-      boundaries.boundary_reflecting_periodic
+      boundaries.boundary_periodic
   };
   ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
   auto& part = ptrw.particles(0);
@@ -183,42 +186,57 @@ int main(int argc, const char * argv[])
   output_space << std::setprecision(8)
                << std::scientific;
   
+  JumpGenerator_Diffusion jump_generator_diffusion{
+    diff,
+    time_step,
+    geometry.dim
+  };
+  auto adjust = [&jump_generator_diffusion, &boundaries]
+  (State& state_new, State const& state_old)
+  {
+    operation::plus_InPlace(state_new.position, jump_generator_diffusion());
+    boundaries.boundary_reflecting_periodic(state_new, state_old);
+  };
+  
   std::string delimiter = "";
   for (std::size_t pp = 0; pp < nr_measures; ++pp)
   {
     double start_time = ptrw.time();
     double start_position = getter_position_longitudinal(part);
     std::cout << "Measure " << pp+1 << " of " << nr_measures << "\n";
-    while (!near_wall(part.state_new()))
-    {
+    while (!inside_bead(part.state_new()))
       ptrw.step();
-    }
     output_time << delimiter << ptrw.time()-start_time;
     output_space << delimiter
                  << getter_position_longitudinal(part) - start_position;
     delimiter = "\t";
     
+    auto state = part.state_new();
+    boundaries.boundary_reflecting_periodic(state, part.state_old());
     while (1)
     {
-      // Place the particle at distance 2*length_discretization from nearest interface
-      auto state = part.state_new();
+      // Place the particle at bead surface
       std::size_t bead
         = bead_pack.place_at_closest_surface(state, boundaries.boundary_periodic);
+      
+      // Check if corresponding position within length_discretization of wall is ok
+      auto state_near_wall = state;
       double radius = bead_pack.radius(bead);
-      auto radial_vector = operation::minus(state.position, bead_pack.center(bead));
-      double radius_val = radius + 2.*length_discretization;
+      auto radial_vector = operation::minus(state_near_wall.position, bead_pack.center(bead));
+      double radius_val = radius + length_discretization;
       operation::times_scalar_InPlace(radius_val/radius, radial_vector);
-      operation::plus(bead_pack.center(bead), radial_vector, state.position);
+      operation::plus(bead_pack.center(bead), radial_vector, state_near_wall.position);
       boundaries.boundary_periodic(state);
       
       // If not closer to another bead, accept
-      if (!bead_pack.near(state.position, 2.*length_discretization).first)
+      if (!near_wall(state_near_wall))
       {
-        ctrw.set(0, state);
+        ctrw.set(0, state_near_wall);
         break;
       }
-      // Otherwise, adjust with a PTRW step and try again
-      ptrw.step();
+      // Otherwise, adjust with diffusive step and try again
+      auto state_old = state;
+      adjust(state, state_old);
     }
   }
   output_time << "\n";

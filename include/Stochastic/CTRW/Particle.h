@@ -48,12 +48,19 @@ namespace ctrw
       new_state = state;
     }
     
-    // Apply transformation to both states
+    // Apply same transformation to both states
     template <typename Transformation>
-    void transform(Transformation transformation)
+    void transform_both(Transformation transformation)
     {
       transformation(old_state);
       transformation(new_state);
+    }
+    
+    // Apply arbitrary transformation to both states
+    template <typename Transformation>
+    void transform(Transformation transformation)
+    {
+      transformation(new_state, old_state);
     }
 
     State const& state_new() const

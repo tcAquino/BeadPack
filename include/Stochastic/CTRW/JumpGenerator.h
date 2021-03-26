@@ -450,12 +450,22 @@ namespace ctrw
     { return jump_generator.size(); }
     
     // Return the jump increment
-    template <typename State = useful::Empty>
-    auto operator() (State const& state = {})
+    template <typename State>
+    auto operator() (State const& state)
     {
       decltype(State::position) jump(dim(), 0.);
       for (std::size_t dd = 0; dd < dim(); ++dd)
         jump[dd] = jump_generator[dd](state);
+      
+      return jump;
+    }
+    
+    // Return the jump increment
+    auto operator() ()
+    {
+      std::vector<double> jump(dim(), 0.);
+      for (std::size_t dd = 0; dd < dim(); ++dd)
+        jump[dd] = jump_generator[dd]();
       
       return jump;
     }

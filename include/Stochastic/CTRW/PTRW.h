@@ -143,7 +143,7 @@ namespace ctrw
 
 	private:
 		CTRW& ctrw;                // Wrapped CTRW object
-		Transitions& transitions;  // CTRW transition handler with fixed time step
+		Transitions& transitions;  // CTRW transition handler with deterministic time step
 
     Time current_time;         // System time
     Time dt;                   // Time step

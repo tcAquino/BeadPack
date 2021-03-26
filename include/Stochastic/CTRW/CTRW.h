@@ -98,7 +98,7 @@ namespace ctrw
       std::size_t pp = 0;
       for (auto& particle : particle_container)
       {
-        particle.transform([pp](State& state){ state.tag = pp; });
+        particle.transform_both([pp](State& state){ state.tag = pp; });
         ++pp;
       }
     }
@@ -106,6 +106,19 @@ namespace ctrw
     // Set particle's new and old state to given state
     void set(std::size_t part, State const& state)
     { particle_container[part].set(state); }
+    
+    // Apply transformation to particle
+    template <typename Transformation>
+    void transform(Transformation transformation, std::size_t part)
+    { particle_container[part].transform(transformation); }
+    
+    // Apply transformation to all particles
+    template <typename Transformation>
+    void transform(Transformation transformation)
+    {
+      for (auto& particle : particle_container)
+        particle.transform(transformation);
+    }
 
     // Remove particles satisfying a criterium
     template<typename Criterium>

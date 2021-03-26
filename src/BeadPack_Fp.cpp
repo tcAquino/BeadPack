@@ -71,7 +71,7 @@ int main(int argc, const char * argv[])
   using State = ctrw::State_periodic<std::vector<double>,
     std::vector<int>, useful::Empty, useful::Empty, std::size_t>;
   using CTRW = ctrw::CTRW<State>;
-  using Boundary = Boundaries::Boundary_Reflecting_Periodic;
+  using Boundary = Boundaries::Boundary_Periodic;
   using JumpGenerator_Advection
     = ctrw::JumpGenerator_Velocity_withHint_RK4<VelocityField&, Boundary&>;
   using JumpGenerator_Diffusion = ctrw::JumpGenerator_Diffusion;
@@ -122,8 +122,8 @@ int main(int argc, const char * argv[])
     time_step_accuracy_diff*diffusion_time);
   double length_discretization = 10.*std::sqrt(2.*diff*time_step);
   
-  auto near_wall = [length_discretization, &bead_pack](State const& state)
-  { return bead_pack.near(state.position, length_discretization).first; };
+  auto inside_bead = [&bead_pack](State const& state)
+  { return bead_pack.inside(state.position).first; };
   
   auto state_maker = [&geometry]()
   { return State{ std::vector<double>(geometry.dim),
@@ -149,7 +149,7 @@ int main(int argc, const char * argv[])
       domain_midpoint, initial_box_centered,
       velocity_field, mean_velocity,
       bead_pack, boundaries.boundary_periodic,
-      2.*length_discretization,
+      length_discretization,
       filename_input_positions,
       state_maker);
   std::cout << "\tDone!\n";
@@ -190,7 +190,7 @@ int main(int argc, const char * argv[])
           velocity_field,
           time_step,
           1,
-          boundaries.boundary_reflecting_periodic
+          boundaries.boundary_periodic
         },
         JumpGenerator_Diffusion{
           diff,
@@ -198,7 +198,7 @@ int main(int argc, const char * argv[])
           geometry.dim
         }
       },
-      boundaries.boundary_reflecting_periodic
+      boundaries.boundary_periodic
   };
   std::cout << "\tDone!\n";
   
@@ -230,7 +230,7 @@ int main(int argc, const char * argv[])
         ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
         auto& part = ptrw.particles(0);
         double initial_position = getter_position_longitudinal(part);
-        while (!near_wall(part.state_new()))
+        while (!inside_bead(part.state_new()))
           ptrw.step();
         output_time << delimiter << ptrw.time();
         output_space << delimiter
@@ -256,7 +256,7 @@ int main(int argc, const char * argv[])
         ctrw::PTRW ptrw{ ctrw, transitions, time_step, 0. };
         auto& part = ptrw.particles(0);
         double initial_position = getter_position_longitudinal(part);
-        while (!near_wall(part.state_new()))
+        while (!inside_bead(part.state_new()))
           ptrw.step();
         mean_fpt += ptrw.time();
         mean_fpd += getter_position_longitudinal(part)-initial_position;
