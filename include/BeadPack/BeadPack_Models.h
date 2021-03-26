@@ -177,7 +177,7 @@ namespace beadpack
     using Geometry = Geometry_Bcc<0>;
     using BeadPack = beadpack::BeadPack<Geometry::dim>;
     using VelocityField =
-      field::VectorField_LinearInterpolation_UnstructuredGrid<Geometry::dim>;
+      field::VectorField_LinearInterpolation_UnstructuredGrid<Geometry::dim, 0, 1>;
     
     struct Boundaries
     {
@@ -225,7 +225,7 @@ namespace beadpack
     using Geometry = Geometry_Bcc<1>;
     using BeadPack = beadpack::BeadPack<Geometry::dim>;
     using VelocityField =
-      field::VectorField_LinearInterpolation_UnstructuredGrid<Geometry::dim>;
+      field::VectorField_LinearInterpolation_UnstructuredGrid<Geometry::dim, 0, 1>;
     
     struct Boundaries
     {

@@ -71,10 +71,10 @@ int main(int argc, const char * argv[])
   std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
   std::size_t run_nr = strtoul(argv[arg++], NULL, 0);
   std::string data_set = argv[arg++];
-  std::string input_dir_base = argc > arg ? argv[arg++] : "../input/";
-  std::string output_dir = argc > arg ? argv[arg++] : "../output/";
+  std::string input_dir_base = argc > arg ? argv[arg++] : "../input";
+  std::string output_dir = argc > arg ? argv[arg++] : "../output";
   
-  std::string input_dir = input_dir_base + data_set + "/";
+  std::string input_dir = input_dir_base + "/" + data_set + "/";
   std::cout << std::scientific << std::setprecision(2);
   
   std::cout << "Making bead pack...\n";
@@ -133,10 +133,10 @@ int main(int argc, const char * argv[])
   
   std::string filename_output_base = "Data_beadpack_return_wall";
   
-  std::string filename_output_time = output_dir +
+  std::string filename_output_time = output_dir + "/" +
     filename_output_base + "_time_" + data_set + "_" + params + ".dat";
   
-  std::string filename_output_space = output_dir +
+  std::string filename_output_space = output_dir + "/" +
     filename_output_base + "_space_" + data_set + "_" + params + ".dat";
   
   auto getter_position_longitudinal = ctrw::Get_new_from_particle{
@@ -190,7 +190,9 @@ int main(int argc, const char * argv[])
     double start_position = getter_position_longitudinal(part);
     std::cout << "Measure " << pp+1 << " of " << nr_measures << "\n";
     while (!near_wall(part.state_new()))
+    {
       ptrw.step();
+    }
     output_time << delimiter << ptrw.time()-start_time;
     output_space << delimiter
                  << getter_position_longitudinal(part) - start_position;
@@ -215,8 +217,7 @@ int main(int argc, const char * argv[])
         ctrw.set(0, state);
         break;
       }
-      
-      // Othwerise, adjust with a PTRW step and try again
+      // Otherwise, adjust with a PTRW step and try again
       ptrw.step();
     }
   }
@@ -227,6 +228,10 @@ int main(int argc, const char * argv[])
   output_space.close();
   
   std::cout << "\tDone!\n";
+  
+  std::cout << "Nearest-neighbor interpolation used "
+            << velocity_field.nr_interpolation_failures()
+            << " times due to numerical issues computing linear interpolation\n";
   
   return 0;
 }

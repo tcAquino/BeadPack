@@ -19,7 +19,6 @@
 #include "Geometry/SymmetryPlanes.h"
 #include "Grid/Grid.h"
 
-
 // A boundary class must implement the following basic functionality
 // class Example_Boundary
 // {
@@ -154,7 +153,6 @@ namespace boundary
     // Lower and upper boundaries along each dimension
 		const std::vector<std::pair<double, double>> boundaries;
     const std::vector<double> domain_dimensions;
-    
 
     // Construct given lower and upper boundaries along each dimension
 		Periodic(std::vector<std::pair<double, double>> boundaries)
