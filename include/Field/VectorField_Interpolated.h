@@ -109,16 +109,6 @@ namespace field
 
     auto kdtree_get_pt(std::size_t idx, std::size_t dd) const
     { return points[idx][dd]; }
-                          
-    auto
-    kdtree_distance(const double *p1, const std::size_t idx_p2, std::size_t size) const
-    {
-      double dist_sq = 0.;
-      for (std::size_t dd = 0; dd < dim; ++dd)
-        dist_sq += (p1[dd]-points[idx_p2])*(p1[dd]-points[idx_p2]);
-
-      return dist_sq;
-    }
 
     template <class BBOX>
     bool kdtree_get_bbox(BBOX &bb) const

@@ -211,6 +211,7 @@ int main(int argc, const char * argv[])
                  << getter_position_longitudinal(part) - start_position;
     delimiter = "\t";
     
+    std::cout << "Getting new start position...\n";
     auto state = part.state_new();
     boundaries.boundary_reflecting_periodic(state, part.state_old());
     while (1)
@@ -238,6 +239,7 @@ int main(int argc, const char * argv[])
       auto state_old = state;
       adjust(state, state_old);
     }
+    std::cout << "Done!\n";
   }
   output_time << "\n";
   output_space << "n";
