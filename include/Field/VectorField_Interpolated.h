@@ -10,6 +10,7 @@
 #define VectorField_Interpolated_h
 
 #include <iterator>
+#include <limits>
 #include <type_traits>
 #include <CGAL/Delaunay_triangulation_2.h>
 #include <CGAL/Delaunay_triangulation_3.h>
@@ -199,38 +200,46 @@ namespace field
       CGAL::sibson_natural_neighbor_coordinates_3(
         triangulation, point, std::back_inserter(coords_vertex), norm, hint);
       
+      Point_coordinate_vector coords_point;
+      coords_point.reserve(coords_vertex.size());
+      for (auto const& val : coords_vertex)
+        coords_point.push_back(std::make_pair(val.first->point(), val.second));
+      
+      auto res = CGAL::linear_interpolation(
+        coords_point.begin(), coords_point.end(), norm,
+        Value_access(function_values));
+      
       if constexpr (check_interpolation)
       {
-        if (norm == 0.)
+        bool invalid = 0;
+        std::vector<double> vel =
+          { CGAL::to_double(res[0]), CGAL::to_double(res[1]), CGAL::to_double(res[2]) };
+        for (auto const& val : vel)
+          if (useful::isnan(val) || val == std::numeric_limits<double>::infinity())
+          {
+            invalid = 1;
+            break;
+          }
+        if (invalid)
         {
           count_interpolation_failures++;
           if constexpr(std::is_same<value_type, Vector>::value == true)
             return tree.nearest_neighbor_value(point);
           else
           {
-            auto val = tree.nearest_neighbor_value(point);
+            auto res = tree.nearest_neighbor_value(point);
             return value_type{
-              CGAL::to_double(val[0]), CGAL::to_double(val[1]), CGAL::to_double(val[2]) };
+              CGAL::to_double(res[0]), CGAL::to_double(res[1]), CGAL::to_double(res[2]) };
           }
         }
       }
       
-      Point_coordinate_vector coords_point;
-      coords_point.reserve(coords_vertex.size());
-      for (auto const& val : coords_vertex)
-        coords_point.push_back(std::make_pair(val.first->point(), val.second));
-      
       if constexpr(std::is_same<value_type, Vector>::value == true)
-        return CGAL::to_double(CGAL::linear_interpolation(
-          coords_point.begin(), coords_point.end(), norm,
-          Value_access(function_values)));
+        return res;
       else
       {
-        auto val = CGAL::linear_interpolation(
-          coords_point.begin(), coords_point.end(), norm,
-          Value_access(function_values));
         return value_type{
-          CGAL::to_double(val[0]), CGAL::to_double(val[1]), CGAL::to_double(val[2]) };
+          CGAL::to_double(res[0]), CGAL::to_double(res[1]), CGAL::to_double(res[2]) };
       }
     }
     
@@ -394,32 +403,41 @@ namespace field
       Coord_type norm = CGAL::natural_neighbor_coordinates_2(
         triangulation, point, std::back_inserter(coords_point), hint).second;
       
+      auto res = CGAL::linear_interpolation(
+        coords_point.begin(), coords_point.end(), norm,
+        Value_access(function_values));
+      
       if constexpr (check_interpolation)
       {
-        if (norm == 0.)
+        bool invalid = 0;
+        std::vector<double> vel =
+          { CGAL::to_double(res[0]), CGAL::to_double(res[1]), CGAL::to_double(res[2]) };
+        for (auto const& val : vel)
+          if (useful::isnan(val) || val == std::numeric_limits<double>::infinity())
+          {
+            invalid = 1;
+            break;
+          }
+        if (invalid)
         {
           count_interpolation_failures++;
           if constexpr(std::is_same<value_type, Vector>::value == true)
             return tree.nearest_neighbor_value(point);
           else
           {
-            auto val = tree.nearest_neighbor_value(point);
+            auto res = tree.nearest_neighbor_value(point);
             return value_type{
-              CGAL::to_double(val[0]), CGAL::to_double(val[1]) };
+              CGAL::to_double(res[0]), CGAL::to_double(res[1]) };
           }
         }
       }
       
       if constexpr(std::is_same<value_type, Vector>::value == true)
-        return CGAL::to_double(CGAL::linear_interpolation(
-          coords_point.begin(), coords_point.end(), norm,
-          Value_access(function_values)));
+        return res;
       else
       {
-        auto val = CGAL::linear_interpolation(
-          coords_point.begin(), coords_point.end(), norm,
-          Value_access(function_values));
-        return value_type{ CGAL::to_double(val[0]), CGAL::to_double(val[1]) };
+        return value_type{
+          CGAL::to_double(res[0]), CGAL::to_double(res[1]) };
       }
     }
     
