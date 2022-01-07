@@ -28,7 +28,7 @@
 
 int main(int argc, const char * argv[])
 {
-  using namespace beadpack::model_bcc_cartesian;
+  using namespace beadpack::model_bcc_symmetryplanes;
   
   if (argc == 1)
   {
@@ -292,12 +292,18 @@ int main(int argc, const char * argv[])
   std::cout << "\tDiscretization length = " << length_discretization << "\n";
   std::cout << "\tNr of measures = " << nr_measures << "\n";
   
+  std::size_t nr_finished = 0;
   while(measurer.count(crossing_values.size()-1) < nr_particles)
   {
     ptrw.step(not_finished);
     measurer.update(ptrw,
                     getter_position_cubic_cell_plane,
                     getter_position_plane);
+    if (measurer.count(crossing_values.size()-1) > nr_finished)
+    {
+      nr_finished = measurer.count(crossing_values.size()-1);
+      std::cout << nr_finished << " of " << nr_particles << " particles have crossed last level\n";
+    }
   }
   
   std::cout << "\tDone!\n";

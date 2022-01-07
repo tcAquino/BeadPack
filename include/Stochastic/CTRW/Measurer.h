@@ -648,7 +648,7 @@ namespace ctrw
              << std::scientific;
       for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
       {
-        output << crossing_values[mm] << "\t";
+        output << crossing_values[mm] << delimiter;
         for (std::size_t part = 0; part < values[mm].size(); ++part)
         {
           output << tags[mm][part];
@@ -979,7 +979,7 @@ namespace ctrw
              << std::scientific;
       for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
       {
-        output << crossing_values[mm] << "\t";
+        output << crossing_values[mm] << delimiter;
         for (std::size_t part = 0; part < values[mm].size(); ++part)
         {
           output << tags[mm][part];
@@ -1177,7 +1177,7 @@ namespace ctrw
       auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
-      useful::print(output, values);
+      useful::print(output, values, 0, delimiter);
       output << "\n";
       output.close();
     }
