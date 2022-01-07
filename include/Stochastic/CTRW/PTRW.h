@@ -61,7 +61,7 @@ namespace ctrw
     // Set timestep and evolve all particles one time step
 		void step(Time dt)
 		{
-			transitions.time_step(dt);
+			time_step(dt);
       step();
 		}
 
@@ -78,6 +78,15 @@ namespace ctrw
     {
       ctrw.step(criterium, transitions);
       current_time += dt;
+    }
+    
+    // Set timestep
+    // and evolve all particles that satisfy criterium one time step
+    template <typename Criterium>
+    void step(Time dt, Criterium criterium)
+    {
+      time_step(dt);
+      step(criterium);
     }
     
     // Set time step

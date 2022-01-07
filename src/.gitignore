@@ -7,6 +7,7 @@
 !BeadPack_Statistics.cpp
 !BeadPack_Strips.cpp
 !BeadPack_Conservative.cpp
+!BeadPack_Poincare.cpp
 !Makefile
 !make.sh
 !set_model.sh

@@ -215,8 +215,8 @@ namespace grid
      useful::Selector_t<geometry::Parallelepiped<>>) const
     {
       std::vector<Pair> near_center;
-      double radius_sq = operation::abs_sq(shape.half_dimensions);
-      radiusSearch(shape.center, radius_sq, near_center);
+      double radius_sq = operation::abs_sq(shape.get_half_dimensions());
+      radiusSearch(shape.get_center(), radius_sq, near_center);
       
       for (auto const& point : near_center)
         if (shape.inside(grid.cell_center(point.first)))

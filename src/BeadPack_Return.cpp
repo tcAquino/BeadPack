@@ -74,7 +74,7 @@ int main(int argc, const char * argv[])
   std::string input_dir_base = argc > arg ? argv[arg++] : "../input";
   std::string output_dir = argc > arg ? argv[arg++] : "../output";
   
-  std::string input_dir = input_dir_base + "/" + data_set + "/";
+  std::string input_dir = input_dir_base + "/" + data_set;
   std::cout << std::scientific << std::setprecision(2);
   
   std::cout << "Making bead pack...\n";
@@ -93,7 +93,7 @@ int main(int argc, const char * argv[])
   
   std::cout << "Importing mean velocity...\n";
   std::vector<double> mean_velocity
-    = beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
+    = beadpack::get_mean_velocity(input_dir + "/" + "mean_velocity.dat");
   double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
   
@@ -126,8 +126,7 @@ int main(int argc, const char * argv[])
   
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
-  stream << geometry.domain_side << "_"
-         << peclet << "_"
+  stream << peclet << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
          << nr_measures << "_"
@@ -192,10 +191,11 @@ int main(int argc, const char * argv[])
     geometry.dim
   };
   auto adjust = [&jump_generator_diffusion, &boundaries]
-  (State& state_new, State const& state_old)
+  (State& state)
   {
-    operation::plus_InPlace(state_new.position, jump_generator_diffusion());
-    boundaries.boundary_reflecting_periodic(state_new, state_old);
+    auto state_old = state;
+    operation::plus_InPlace(state.position, jump_generator_diffusion());
+    boundaries.boundary_reflecting_periodic(state, state_old);
   };
   
   std::string delimiter = "";
@@ -235,8 +235,7 @@ int main(int argc, const char * argv[])
         break;
       }
       // Otherwise, adjust with diffusive step and try again
-      auto state_old = state;
-      adjust(state, state_old);
+      adjust(state);
     }
   }
   output_time << "\n";

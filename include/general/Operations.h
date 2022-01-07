@@ -400,8 +400,8 @@ namespace operation
       return lambda*input_1 + input_2;
     else
     {
-      Container_1 output;
-      LinearOp(lambda, input_1, input_2, output);
+      Container_1 output(input_1.size());
+      linearOp(lambda, input_1, input_2, output);
 
       return output;
     }
@@ -411,7 +411,7 @@ namespace operation
   typename Container_2>
   void linearOp_InPlace
   (Type lambda, Container_1& input_1, Container_2 const& input_2)
-  { LinearOp(lambda, input_1, input_2, input_1); }
+  { linearOp(lambda, input_1, input_2, input_1); }
 
   // Element-wise square
   template <typename Container, typename Container_out>
@@ -564,6 +564,38 @@ namespace operation
     }
     return result;
   }
+  
+  // Averages of adjacent elements
+  template <typename Container>
+  void midpoints(Container const& input, Container& output)
+  {
+    for(size_t ii = 0; ii < input.size()-1; ++ii)
+      output[ii] = (input[ii+1] + input[ii])/2.;
+  }
+  
+  template <typename Container>
+  Container midpoints(Container const& input)
+  {
+    Container output(input.size()-1);
+    midpoints(input, output);
+    return output;
+  }
+  
+  // Differences of adjacent elements
+  template <typename Container>
+  void diff(Container const& input, Container& output)
+  {
+    for(size_t ii = 0; ii < input.size()-1; ++ii)
+      output[ii] = input[ii+1] - input[ii];
+  }
+  
+  template <typename Container>
+  Container diff(Container const& input)
+  {
+    Container output(input.size()-1);
+    diff(input, output);
+    return output;
+  }
 
   // Dot product
   template <typename Container>
@@ -590,6 +622,24 @@ namespace operation
   {
     Container_inner output(input_2.size());
     Dot(input_1, input_2, output);
+
+    return output;
+  }
+  
+  
+  template <typename Container>
+  void rotate
+  (Container const& input, double theta, Container& output)
+  {
+    output[0] = std::cos(theta)*input[0]-std::sin(theta)*input[1];
+    output[1] = std::sin(theta)*input[0]+std::cos(theta)*input[1];
+  }
+  
+  template <typename Container>
+  auto rotate(Container const& vec, double theta)
+  {
+    Container output(vec.size());
+    rotate(vec, theta, output);
 
     return output;
   }
@@ -639,6 +689,20 @@ namespace operation
     for (; it != vec.end(); it++, other_it++)
       hamming += *it > *other_it ? *it - *other_it : *other_it - *it;
     return hamming;
+  }
+  
+  // Euclidean distance squared
+  template <typename Container>
+  double dist_sq(Container const& vec, Container const& other_vec)
+  {
+    return abs_sq(operation::minus(vec, other_vec));
+  }
+  
+  // Euclidean distance
+  template <typename Container>
+  double dist(Container const& vec, Container const& other_vec)
+  {
+    return abs(operation::minus(vec, other_vec));
   }
   
   // Get component,

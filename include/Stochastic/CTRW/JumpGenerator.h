@@ -230,8 +230,8 @@ namespace ctrw
       auto k4 = velocity(state_intermediate);
       
       auto jump = operation::plus(k1, k4);
-      operation::linearOp_InPlace(1., jump, 2., k2);
-      operation::linearOp_InPlace(1., jump, 2., k3);
+      operation::linearOp(2., k2, jump, jump);
+      operation::linearOp(2., k3, jump, jump);
       operation::times_scalar_InPlace(dt/6., jump);
       
       return jump;
@@ -438,15 +438,15 @@ namespace ctrw
     }
     
     // Get time step
-    double time_step()
+    double time_step() const
     { return jump_generator[0].time_step(); }
     
     // Get diffusion coefficient along dimension dd
-    double diff(std::size_t idx)
+    double diff(std::size_t idx) const
     { return jump_generator[0].diff(); }
     
     // Get spatial dimension
-    std::size_t dim()
+    std::size_t dim() const
     { return jump_generator.size(); }
     
     // Return the jump increment

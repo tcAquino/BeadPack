@@ -317,7 +317,7 @@ namespace ctrw
     std::vector<double> direction;
   };
   template <typename Getter>
-  Get_projection(Getter&&)
+  Get_projection(Getter&&, std::vector<double> const&)
   -> Get_projection<Getter>;
   
   // Get state.tag given state

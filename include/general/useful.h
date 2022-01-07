@@ -25,6 +25,37 @@
 
 namespace useful
 {
+  // Get widths of bins having given values as midpoints
+  // and given minimum (left edge)
+  template <typename Value_type = double>
+  std::vector<Value_type> get_bin_widths
+  (std::vector<Value_type> const& values, Value_type minimum)
+  {
+    std::vector<Value_type> widths;
+    widths.reserve(values.size());
+    double left_edge = minimum;
+    for (auto const& val : values)
+    {
+      widths.push_back(2.*(val-left_edge));
+      if (widths.back() < 0.)
+        throw std::runtime_error{ "Bad minimum value, could not determine PDF bin widths" };
+      left_edge += widths.back();
+    }
+    
+    return widths;
+  }
+  
+  // Get widths of bins having given values as midpoints
+  // and given minimum (left edge)
+  template <typename Value_type = double>
+  std::vector<Value_type> get_bin_widths
+  (std::vector<Value_type> const& values)
+  {
+    if (values.size() < 2)
+      throw std::runtime_error{ "Less than two values, could not determine PDF bin widths" };
+    double midpoint = (values[1]+values[0])/2.;
+    return get_bin_widths(values, values[0]-(midpoint-values[0]));
+  }
   
   // Check if container contains val
   // Warning: container must be sorted
@@ -144,7 +175,7 @@ namespace useful
     return file;
   }
   
-  //Load 1-column file into vectors of doubles
+  //Load 1-column file into vector of doubles
   auto load_1
   (std::string const& filename, std::size_t nr_estimate = 0,
    std::size_t header_lines = 0,
@@ -155,7 +186,7 @@ namespace useful
     Container values;
     values.reserve(nr_estimate);
     
-    std::ifstream file(filename);
+    auto file = open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -174,8 +205,8 @@ namespace useful
   
   //Load 2-column file into pair of vectors of doubles
   auto load_2
- (std::string const& filename, std::size_t nr_estimate = 0,
-  std::size_t header_lines = 0, std::string const& delim = " ")
+  (std::string const& filename, std::size_t nr_estimate = 0,
+   std::size_t header_lines = 0, std::string const& delim = " ")
   {
     using Value = double;
     using Container = std::vector<Value>;
@@ -183,9 +214,7 @@ namespace useful
     values.first.reserve(nr_estimate);
     values.second.reserve(nr_estimate);
     
-    std::ifstream file(filename);
-    if (!file.is_open())
-      throw useful::open_read_error(filename);
+    auto file = open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -216,7 +245,7 @@ namespace useful
     for (auto& val : values)
       val.reserve(nr_estimate);
     
-    std::ifstream file(filename);
+    auto file = open_read(filename);
     std::string line;
     for (std::size_t ll = 0; ll < header_lines; ++ll)
       getline(file, line);
@@ -233,6 +262,15 @@ namespace useful
     file.close();
     
     return values;
+  }
+  
+  // Read next value from file
+  template <typename Type>
+  void read(std::ifstream& input, Type& val)
+  {
+    input >> val;
+    if (input.fail())
+      throw std::runtime_error{ "Could not read value" };
   }
   
   // From Anton Dyachenko's answer here:

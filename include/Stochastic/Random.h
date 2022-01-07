@@ -120,6 +120,9 @@ namespace stochastic
     std::exponential_distribution<double> exponential_dist{ 1. };
   };
 
+  // Pareto distribution
+  // Tail pdf x^{-alpha-1}
+  // Minimum (cutoff) value min
   template <typename Value_type = double>
   class pareto_distribution
   {
@@ -223,6 +226,45 @@ namespace stochastic
     param_type dim;
     std::normal_distribution<double> normal_dist{};
   };
+  
+  // Discrete distribution over given set of values
+  template <typename Discrete_pdf>
+  class discrete_pdf_distribution
+  {
+  public:
+    using param_type = Discrete_pdf;
+    using result_type = typename Discrete_pdf::Value_type;
+
+    discrete_pdf_distribution
+    (Discrete_pdf&& pdf)
+    : pdf{ std::move(pdf) }
+    , discrete_dist{ make_discrete_dist() }
+    {}
+
+    template <typename Generator>
+    result_type operator() (Generator& rng)
+    {
+      return pdf.value(discrete_dist(rng));
+    }
+
+  private:
+    Discrete_pdf pdf;
+    std::discrete_distribution<std::size_t> discrete_dist;
+    
+    auto make_discrete_dist()
+    {
+      std::vector<double> weights;
+      weights.reserve(pdf.size());
+      for (std::size_t ii = 0; ii < pdf.size(); ++ii)
+        weights.push_back(pdf.bin_probability(ii));
+      
+      return std::discrete_distribution<std::size_t>{
+        weights.begin(), weights.end() };
+    }
+  };
+  template <typename Discrete_pdf>
+  discrete_pdf_distribution(Discrete_pdf&&)
+  -> discrete_pdf_distribution<Discrete_pdf>;
 
   // Returns a pdf of given set of values,
   // normalized to integral equal to number of samples

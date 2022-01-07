@@ -10,6 +10,7 @@ then
 	mv ../bin/BeadPack_Return "../bin/BeadPack_Return_$1"
 	mv ../bin/BeadPack_Statistics "../bin/BeadPack_Statistics_$1"
 	mv ../bin/BeadPack_Strips "../bin/BeadPack_Strips_$1"
+  mv ../bin/BeadPack_Poincare "../bin/BeadPack_Poincare_$1"
 	exit 0
 fi
 if [[ "$#" -eq 2 ]]

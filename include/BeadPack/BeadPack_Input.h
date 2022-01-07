@@ -484,7 +484,7 @@ namespace beadpack
   //   nr_estimate : Estimate the number of points for efficiency
   template <typename Vector = std::vector<double>>
   Vector get_mean_velocity
-  (std::size_t dim, std::string const& filename,
+  (std::string const& filename,
    std::size_t header_lines = 0, double rescale = 1.,
    std::string const& delims = "\t,| ")
   {

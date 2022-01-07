@@ -109,7 +109,7 @@ int main(int argc, const char * argv[])
   const BeadPack bead_pack = make_bead_pack(input_dir);
   const Geometry geometry{ bead_pack.radius(0) };
   std::cout << "\tDone!\n";
-  
+
   std::cout << "Setting up boundary conditions...\n";
   Boundaries boundaries{ geometry, bead_pack };
   std::cout << "\tDone!\n";
@@ -254,7 +254,7 @@ int main(int argc, const char * argv[])
       
       std::cout << "\tImporting mean velocity...\n";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
+        beadpack::get_mean_velocity(input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
@@ -395,7 +395,7 @@ int main(int argc, const char * argv[])
       
       std::cout << "\tImporting mean velocity...\n";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
+        beadpack::get_mean_velocity(input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
@@ -524,7 +524,7 @@ int main(int argc, const char * argv[])
       
       std::cout << "\tImporting mean velocity...\n";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
+        beadpack::get_mean_velocity(input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
@@ -534,15 +534,14 @@ int main(int argc, const char * argv[])
       input.close();
       std::cout << "\t\tDone!\n";
       
-      std::vector<double> times
-        = range::linspace(0., measure_max*geometry.domain_side/operation::abs(mean_velocity),
-                          nr_measures);
-      
       std::cout << "\tSetting up trajectories...\n";
       auto particles = beadpack::make_particles_random_uniform_box<CTRW::Particle>(
         nr_samples, bead_pack, boundaries.boundary_periodic, geometry.boundaries, state_maker);
       std::cout << "\t\tDone!\n";
       
+      std::vector<double> times
+        = range::linspace(0., measure_max*geometry.domain_side/operation::abs(mean_velocity),
+                          nr_measures);
       std::vector<double> velocity_autocorrelation(times.size());
       std::vector<std::size_t> surviving_trajectories(times.size(), nr_samples);
       double velocity_cutoff = velocity_tolerance*mean_velocity_magnitude;
@@ -675,7 +674,7 @@ int main(int argc, const char * argv[])
       
       std::cout << "\tImporting mean velocity...\n";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
+        beadpack::get_mean_velocity(input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
@@ -824,10 +823,7 @@ int main(int argc, const char * argv[])
       
       std::cout << "\tImporting mean velocity...\n";
       std::vector<double> mean_velocity =
-        beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
-      std::vector<double> times
-        = range::linspace(0., measure_max*geometry.domain_side/operation::abs(mean_velocity),
-                          nr_measures);
+        beadpack::get_mean_velocity(input_dir + "/" + "mean_velocity.dat");
       std::cout << "\t\tDone!\n";
       
       std::cout << "\tImporting mean velocity magnitude...\n";
@@ -848,6 +844,9 @@ int main(int argc, const char * argv[])
       output << std::setprecision(12)
              << std::scientific;
       
+      std::vector<double> times
+        = range::linspace(0., measure_max*geometry.domain_side/operation::abs(mean_velocity),
+                          nr_measures);
       useful::print(output, times);
       output << "\n";
       std::size_t surviving_trajectories = nr_samples;

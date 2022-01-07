@@ -15,6 +15,7 @@
 #include "Stochastic/CTRW/JumpGenerator.h"
 #include "Stochastic/CTRW/TimeGenerator.h"
 #include "general/Operations.h"
+#include "Geometry/Coordinates.h"
 
 namespace ctrw
 {
@@ -625,6 +626,49 @@ namespace ctrw
   Transitions_RunAndTumble_PTRW
   <Boundary, StateSwitcher, JumpGenerator,
   OrientationGenerator, OrientationGenerator>;
+  
+  template <typename Acceleration, typename Boundary>
+  class Transitions_Velocity_Acceleration
+  {
+  public:
+    Transitions_Velocity_Acceleration
+    (double timestep,
+     Acceleration&& acceleration, Boundary&& boundary = {})
+    : timestep{ timestep }
+    , acceleration{ std::forward<Acceleration>(acceleration) }
+    , boundary{ std::forward<Boundary>(boundary) }
+    {}
+
+    template <typename State>
+    void operator() (State& state)
+    {
+      auto state_old = state;
+      operation::linearOp(time_step(), state.velocity, state.position,
+                          state.position);
+      operation::linearOp(time_step(), acceleration(state), state.velocity,
+                          state.velocity);
+      boundary(state, state_old);
+    }
+    
+    template <typename Time = double>
+    void time_step(Time timestep)
+    { this->timestep = timestep; }
+    
+    auto time_step() const
+    { return timestep; }
+
+  private:
+    double timestep;
+    Acceleration acceleration;
+    Boundary boundary;
+  };
+  template
+  <typename Acceleration, typename Boundary>
+  Transitions_Velocity_Acceleration
+  (double, Acceleration&&, Boundary&&) ->
+  Transitions_Velocity_Acceleration<Acceleration, Boundary>;
+  
+  
 }
 
 #endif /* Transitions_State_h */

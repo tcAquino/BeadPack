@@ -8,6 +8,7 @@ then
 	sed -i'.bak' "s/.*using namespace beadpack::model_.*/  using namespace beadpack::model_$1;/" BeadPack_Return.cpp
 	sed -i'.bak' "s/.*using namespace beadpack::model_.*/  using namespace beadpack::model_$1;/" BeadPack_Statistics.cpp
 	sed -i'.bak' "s/.*using namespace beadpack::model_.*/  using namespace beadpack::model_$1;/" BeadPack_Strips.cpp
+  sed -i'.bak' "s/.*using namespace beadpack::model_.*/  using namespace beadpack::model_$1;/" BeadPack_Poincare.cpp
 	rm *.bak
 	exit 0
 fi

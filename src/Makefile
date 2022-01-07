@@ -10,7 +10,7 @@ INC = -I$(PTH) -I$(PTHINC)
 CFLAGS = -Wall -std=c++17 $(OPT)
 LFLAGS = -lgmp -lmpfr
 
-all : BeadPack_Conservative BeadPack_Reactive BeadPack_Fp BeadPack_Return BeadPack_Strips BeadPack_ReactionMap BeadPack_Statistics
+all : BeadPack_Conservative BeadPack_Reactive BeadPack_Fp BeadPack_Return BeadPack_Strips BeadPack_ReactionMap BeadPack_Statistics BeadPack_Poincare
 
 BeadPack_Conservative : BeadPack_Conservative.o
 	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Conservative BeadPack_Conservative.o $(LFLAGS)
@@ -47,6 +47,11 @@ BeadPack_Statistics : BeadPack_Statistics.o
 	rm BeadPack_Statistics.o
 	mv BeadPack_Statistics $(PTHBIN)/BeadPack_Statistics
 
+BeadPack_Poincare : BeadPack_Poincare.o
+	$(CC) $(CFLAGS) $(LIB) -o BeadPack_Poincare BeadPack_Poincare.o $(LFLAGS)
+	rm BeadPack_Poincare.o
+	mv BeadPack_Poincare $(PTHBIN)/BeadPack_Poincare
+
 BeadPack_Conservative.o : BeadPack_Conservative.cpp
 	$(CC) $(CFLAGS) $(INC) -c $<
 
@@ -68,5 +73,8 @@ BeadPack_ReactionMap.o : BeadPack_ReactionMap.cpp
 BeadPack_Statistics.o : BeadPack_Statistics.cpp
 	$(CC) $(CFLAGS) $(INC) -c $<
 
+BeadPack_Poincare.o : BeadPack_Poincare.cpp
+	$(CC) $(CFLAGS) $(INC) -c $<
+
 clean :
-	rm -f BeadPack_Conservative BeadPack_Reactive BeadPack_Fp BeadPack_Strips BeadPack_Return BeadPack_ReactionMap BeadPack_Statistics BeadPack_Conservative.o BeadPack_Reactive.o BeadPack_Fp.o BeadPack_Strips.o BeadPack_Return.o BeadPack_ReactionMap.o BeadPack_Statistics.o
+	rm -f BeadPack_Conservative BeadPack_Reactive BeadPack_Fp BeadPack_Strips BeadPack_Return BeadPack_ReactionMap BeadPack_Statistics BeadPack_Poincare BeadPack_Conservative.o BeadPack_Reactive.o BeadPack_Fp.o BeadPack_Strips.o BeadPack_Return.o BeadPack_ReactionMap.o BeadPack_Statistics.o BeadPack_Poincare.o

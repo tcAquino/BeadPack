@@ -84,7 +84,8 @@ namespace boundary
   }
 
   // Return whether position is outside boundaries along each dimension
-  template <typename Position, typename Boundaries>
+  template <typename Position = std::vector<double>,
+  typename Boundaries = std::vector<std::pair<double, double>>>
   bool outOfBounds_box(Position const& position, Boundaries const& boundaries)
   {
     position[0];
@@ -196,6 +197,43 @@ namespace boundary
       return dimensions;
     }
 	};
+  
+  // Periodic boundary along dimension dd
+  // State must define: position (vector type)
+  template <std::size_t dd>
+  class Periodic_dim
+  {
+  public:
+    
+    const std::pair<double, double> boundaries;  // Lower and upper boundaries along dimension dd
+    static const std::size_t dim = dd;           // Dimension for outside visibility
+
+    // Construct with boundaries at same distance from origin given domain halfwidth
+    Periodic_dim(double half_width)
+    : boundaries{ -half_width, half_width }
+    {}
+
+    // Construct given lower and upper boundaries along dimension dim
+    Periodic_dim(std::pair<double, double> boundaries)
+    : boundaries{ boundaries }
+    {}
+
+    // Check if position is out of bounds
+    template <typename Position>
+    bool outOfBounds(Position const& position) const
+    { return outOfBounds_box(position[dd], boundaries); }
+
+    // Enforce boundary condition
+    template <typename State>
+    bool operator()(State& state, State const& state_old = {}) const
+    {
+      if (!outOfBounds(state.position))
+        return false;
+      state.position[dd] +=
+        boundary::periodic(state.position[dd], boundaries);
+      return true;
+    }
+  };
   
   // Periodic boundaries along each dimension
   // with information about where position would be outside domain
@@ -620,7 +658,7 @@ namespace boundary
       auto position_old = state_old.position;
       while (inside_bead.first)
       {
-        geometry::ReflectOffSphere_OutsideToInside(position_new, position_old,
+        geometry::reflectOffSphere_outsideToInside(position_new, position_old,
                                                    bead_pack.bead(inside_bead.second),
                                                    position_new, position_old);
         
@@ -689,7 +727,7 @@ namespace boundary
         auto inside_bead = bead_pack.inside(state.position);
         outofbounds_reflection = inside_bead.first;
         if (outofbounds_reflection)
-          geometry::ReflectOffSphere_OutsideToInside(state.position, position_old,
+          geometry::reflectOffSphere_outsideToInside(state.position, position_old,
                                                      bead_pack.bead(inside_bead.second),
                                                      state.position, position_old);
         
@@ -839,6 +877,252 @@ namespace boundary
       geometry::translate(position, symmetry_planes, projections, scale);
     }
   };
+  
+  // Reflect off beads in a beadpack with velocity info and acceleration field
+  // State must define: position (vector type)
+  //                    velocity (vector type)
+  template <typename BeadPack, typename Acceleration>
+  class ReflectingBeads_Velocity
+  {
+  public:
+    // Construct given beadpack and background acceleration
+    ReflectingBeads_Velocity
+    (BeadPack const& bead_pack,
+     Acceleration acceleration,
+     double timestep,
+     double radius = 0.,
+     double restitution_coeff_norm = 1.,
+     double restitution_coeff_tang = 1.)
+    : bead_pack{ bead_pack }
+    , acceleration{ acceleration }
+    , timestep{ timestep }
+    , radius{ radius }
+    , restitution_coeff_norm{ restitution_coeff_norm }
+    , restitution_coeff_tang{ restitution_coeff_tang }
+    {}
+    
+    // Check if position is out of bounds
+    template <typename Position>
+    bool outOfBounds(Position const& position) const
+    { return bead_pack.near(position, radius).first; }
+    
+    // Enforce boundary condition
+    template <typename State>
+    bool operator()(State& state, State const& state_old) const
+    {
+      // If current position is inside a bead, apply reflection on that bead
+      // Repeat until within periodic bounds and outside beads
+      
+      auto& position_new = state.position;
+      auto& velocity_new = state.velocity;
+      
+      auto inside_bead = bead_pack.near(position_new);
+      if (!inside_bead.first)
+        return false;
+      
+      // Place current position at reflected position
+      // and old position at reflection point
+      // to compute displacement for further reflections if needed
+      auto position_old = state_old.position;
+      auto velocity_old = state_old.velocity;
+      double time_to_contact = 0.;
+      while (inside_bead.first)
+      {
+        geometry::reflectOffSphere_velocity_outsideToInside(
+          position_new, position_old, velocity_old,
+          bead_pack.bead(inside_bead.second),
+          position_new, velocity_new,
+          position_old, velocity_old, time_to_contact,
+          timestep-time_to_contact,
+          acceleration(state_old),
+          restitution_coeff_norm, restitution_coeff_tang, radius);
+        inside_bead = bead_pack.near(position_new, state_old.radius);
+      }
+      
+      return true;
+    }
+    
+  private:
+    BeadPack const& bead_pack;  // Beadpack with beads to reflect off
+    Acceleration acceleration; // Uniform background acceleration
+    double timestep;
+    double radius;
+    double restitution_coeff_norm;
+    double restitution_coeff_tang;
+  };
+ 
+  // Reflect off beads in a beadpack
+  // and enforce reflecting boundary conditions on rectangular box
+  // State must define: position (vector type)
+  //                    velocity (vector type)
+  template <typename BeadPack, typename Acceleration>
+  class ReflectingBeads_Velocity_ReflectingBox
+  {
+  public:
+    // Construct given beadpack object and boundary object to enforce reflecting boundary
+    ReflectingBeads_Velocity_ReflectingBox
+    (BeadPack const& bead_pack, Acceleration&& acceleration,
+     std::vector<std::pair<double, double>> boundaries,
+     double timestep,
+     double radius = 0., double restitution_coeff_norm = 1.,
+     double restitution_coeff_tang = 1.)
+    : bead_pack{ bead_pack }
+    , acceleration{ std::forward<Acceleration>(acceleration) }
+    , timestep{ timestep }
+    , radius{ radius }
+    , restitution_coeff_norm{ restitution_coeff_norm }
+    , restitution_coeff_tang{ restitution_coeff_tang }
+    , boundaries{ boundaries }
+    {
+      for (auto& bound : this->boundaries)
+      {
+        bound.first += radius;
+        bound.second -= radius;
+      }
+    }
+    
+    // Check if position is out of bounds
+    template <typename Position>
+    bool outOfBounds(Position const& position) const
+    {
+      return
+      bead_pack.near(position, radius).first
+      || outOfBounds_box(position, boundaries);
+    }
+    
+    // Enforce boundary condition
+    template <typename State>
+    bool operator()(State& state, State const& state_old) const
+    {
+      // Apply reflecting box boundary condition
+      // If current position is inside a bead, apply reflection on that bead
+      // Repeat until within periodic bounds and outside beads
+      
+      auto position_old = state_old.position;
+      auto velocity_old = state_old.velocity;
+      auto& position_new = state.position;
+      auto& velocity_new = state.velocity;
+      
+      double time_to_contact = 0.;
+      
+      bool outofbounds_beadpack;
+      bool outofbounds_reflecting;
+      int counter_boundary_effects = 0;
+      do
+      {
+        outofbounds_beadpack = 0;
+        outofbounds_reflecting = 0;
+        
+        // Reflect if outside box
+        // Place current position at reflected position
+        // and old position at reflection point
+        // to compute displacement for further reflections if needed
+        outofbounds_reflecting = outOfBounds_box(position_new, boundaries);
+        
+        if (outofbounds_reflecting)
+          reflect_box(position_new, position_old, velocity_old,
+                      position_new, velocity_new,
+                      position_old, velocity_old, time_to_contact,
+                      acceleration(state_old));
+
+        // Reflect if inside bead
+        // Place current position at reflected position
+        // and old position at reflection point
+        // to compute displacement for further reflections if needed
+        auto inside_bead = bead_pack.near(state.position, radius);
+        outofbounds_beadpack = inside_bead.first;
+        if (outofbounds_beadpack)
+          geometry::reflectOffSphere_velocity_outsideToInside(
+            position_new, position_old, velocity_old,
+            bead_pack.bead(inside_bead.second),
+            position_new, velocity_new,
+            position_old, velocity_old, time_to_contact,
+            timestep-time_to_contact,
+            acceleration(state_old),
+            restitution_coeff_norm, restitution_coeff_tang, radius);
+        
+        // Check if anything happened, then end if not
+        counter_boundary_effects += outofbounds_beadpack + outofbounds_reflecting;
+      }
+      while (outofbounds_beadpack || outofbounds_reflecting);
+      
+      return counter_boundary_effects;
+    }
+    
+    template <typename Position>
+    void reflect_box
+    (Position const& position_new, Position const& position_old,
+     Position const& velocity_old,
+     Position& position_reflected, Position& velocity_reflected,
+     Position& position_contact, Position& velocity_contact,
+     double& time_to_contact, Position const& acceleration) const
+    {
+      // Determine contact times from linear approximation of trajectory
+      std::vector<double> contact_times;
+      contact_times.reserve(position_new.size());
+      // Compute time to contact along each dimension
+      for (std::size_t dd = 0; dd < position_new.size(); ++dd)
+      {
+        if (position_new[dd] < boundaries[dd].first)
+        {
+          contact_times.push_back(std::min(
+            timestep,
+            (position_old[dd]-boundaries[dd].first)/velocity_old[dd]));
+          continue;
+        }
+        if (position_new[dd] > boundaries[dd].second)
+        {
+          contact_times.push_back(
+            (boundaries[dd].second-position_old[dd])/
+            velocity_old[dd]);
+        }
+        contact_times.push_back(timestep);
+      }
+      auto first_contact = std::min_element(contact_times.cbegin(),
+                                            contact_times.cend());
+      time_to_contact = *first_contact;
+      std::size_t dd_contact = first_contact-contact_times.begin();
+      operation::linearOp(time_to_contact, velocity_old,
+                          position_old,
+                          position_contact);
+      
+      // Compute reflected velocity at contact
+      operation::linearOp(time_to_contact, acceleration,
+                          velocity_old,
+                          velocity_contact);
+      
+      velocity_contact[dd_contact] = -velocity_contact[dd_contact];
+      velocity_contact[dd_contact] *= restitution_coeff_norm;
+      for (std::size_t dd = 0; dd < velocity_contact.size(); ++dd)
+        if (dd != dd_contact)
+          velocity_contact[dd] *= restitution_coeff_tang;
+      
+      // Compute reflected position and velocity
+      double time_leftover = timestep-time_to_contact;
+      operation::linearOp(time_leftover, velocity_contact,
+                          position_contact,
+                          position_reflected);
+      operation::linearOp(time_leftover, acceleration,
+                          velocity_contact,
+                          velocity_reflected);
+    }
+    
+  private:
+    BeadPack const& bead_pack;
+    Acceleration acceleration;
+    double timestep;
+    double radius;
+    double restitution_coeff_norm;
+    double restitution_coeff_tang;
+    std::vector<std::pair<double, double>> boundaries;
+  };
+  template
+  <typename BeadPack, typename Acceleration>
+  ReflectingBeads_Velocity_ReflectingBox
+  (BeadPack const&, Acceleration&&,
+   std::vector<std::pair<double, double>>,
+   double, double, double, double) ->
+  ReflectingBeads_Velocity_ReflectingBox<BeadPack, Acceleration>;
 }
 
 #endif /* Boundary_h */

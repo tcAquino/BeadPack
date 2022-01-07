@@ -129,7 +129,7 @@ int main(int argc, const char * argv[])
 
   std::cout << "Importing mean velocity...\n";
   std::vector<double> mean_velocity
-    = beadpack::get_mean_velocity(geometry.dim, input_dir + "/" + "mean_velocity.dat");
+    = beadpack::get_mean_velocity(input_dir + "/" + "mean_velocity.dat");
   double magnitude_mean_velocity = operation::abs(mean_velocity);
   std::cout << "\tDone!\n";
 

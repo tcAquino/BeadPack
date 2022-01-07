@@ -63,12 +63,15 @@ namespace beadpack
     : bead_container{ beads }
     , kdtree{ dimension, *this, KDTreeParams{ kdtree_leaf_max_size } }
     {
-      auto radius_comp = [](Bead const& s1, Bead const& s2)
-      { return s1.radius < s2.radius; };
-      max_radius = std::max_element(bead_container.cbegin(),
-        bead_container.cend(), radius_comp)->radius;
-      min_radius = std::min_element(bead_container.cbegin(),
-        bead_container.cend(), radius_comp)->radius;
+      if (!beads.empty())
+      {
+        auto radius_comp = [](Bead const& s1, Bead const& s2)
+        { return s1.radius < s2.radius; };
+        max_radius = std::max_element(bead_container.cbegin(),
+          bead_container.cend(), radius_comp)->radius;
+        min_radius = std::min_element(bead_container.cbegin(),
+          bead_container.cend(), radius_comp)->radius;
+      }
         
       kdtree.buildIndex();
     }
@@ -151,6 +154,29 @@ namespace beadpack
       {
         std::vector<double> displacement(position.size(), 0.);
         displacement[0] = radius(bead);
+        operation::plus(center(bead), displacement, position);
+      }
+    }
+    
+    // Place position at given distance from the closest point on the given bead's surface
+    // Warning: Does not check if inside another bead
+    template <typename Position>
+    void place_near_surface
+    (Position& position, std::size_t bead, double distance) const
+    {
+      auto radial_vector = operation::minus(position, center(bead));
+      double distance_to_center = operation::abs(radial_vector);
+      if (distance_to_center != 0.)
+      {
+        double distance_fraction = (radius(bead)+distance)/distance_to_center;
+        operation::times_scalar_InPlace(distance_fraction, radial_vector);
+        operation::plus(center(bead), radial_vector, position);
+      }
+      // If at bead center, place at surface along first dimension
+      else
+      {
+        std::vector<double> displacement(position.size(), 0.);
+        displacement[0] = radius(bead)+distance;
         operation::plus(center(bead), displacement, position);
       }
     }

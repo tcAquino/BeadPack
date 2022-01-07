@@ -44,11 +44,9 @@ namespace ctrw
     Measurer_State
     (std::string const& filename,
      int precision = 8, std::string delimiter = "\t")
-    : output{ filename }
+    : output{ useful::open_write(filename) }
     , delimiter{ delimiter }
     {
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
       output << std::setprecision(precision)
              << std::scientific;
     }
@@ -136,11 +134,9 @@ namespace ctrw
     Measurer_Total
     (std::string const& filename, int precision = 8,
      std::string delimiter = "\t")
-    : output{ filename }
+    : output{ useful::open_write(filename) }
     , delimiter{ delimiter }
     {
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
       output << std::setprecision(precision)
              << std::scientific;
     }
@@ -192,11 +188,9 @@ namespace ctrw
     Measurer_Mean
     (std::string const& filename, int precision = 8,
      std::string delimiter = "\t")
-    : output{ filename }
+    : output{ useful::open_write(filename) }
     , delimiter{ delimiter }
     {
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
       output << std::setprecision(precision)
              << std::scientific;
     }
@@ -248,11 +242,9 @@ namespace ctrw
     Measurer_Particle
     (std::string const& filename, int precision = 8,
      std::string delimiter = "\t")
-    : output{ filename }
+    : output{ useful::open_write(filename) }
     , delimiter{ delimiter }
     {
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
       output << std::setprecision(precision)
              << std::scientific;
     }
@@ -301,11 +293,9 @@ namespace ctrw
     Measurer_Collection
     (std::string const& filename, int precision = 8,
      std::string delimiter = "\t")
-    : output{ filename }
+    : output{ useful::open_write(filename) }
     , delimiter{ delimiter }
     {
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
       output << std::setprecision(precision)
              << std::scientific;
     }
@@ -392,9 +382,7 @@ namespace ctrw
     (std::string const& filename, Container const& measure_points,
      int precision = 8, std::string delimiter = "\t")
     {
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
       for (std::size_t mm = 0; mm < measure_points.size(); ++mm)
@@ -464,9 +452,7 @@ namespace ctrw
     (std::string const& filename, Container const& measure_points,
      int precision = 8, std::string delimiter = "\t")
     {
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
       for (std::size_t mm = 0; mm < measure_points.size(); ++mm)
@@ -549,15 +535,14 @@ namespace ctrw
     (std::string const& filename,
      int precision = 8, std::string delimiter = "\t") const
     {
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
       for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
       {
         output << crossing_values[mm];
-        useful::print(output, values[mm], 1, delimiter);
+        for (auto const& val : values[mm])
+          useful::print(output, val, 1, delimiter);
         output << "\n";
       }
       output.close();
@@ -568,6 +553,119 @@ namespace ctrw
   private:
     std::vector<std::vector<Type>> values;  // values[ii][jj] is the jjth stored value
                                             // at the iith crossing value
+    
+    // Convert crossing value container to vector
+    template <typename Container>
+    auto get_crossing_values(Container const& crossing_values_in)
+    {
+      std::vector<double> crossing_values;
+      for (auto const& val : crossing_values_in)
+        crossing_values.push_back(val);
+      return crossing_values;
+    }
+  };
+      
+  // Store quantity when given values (e.g. of position) are crossed
+  // between the new particle state and the old particle state
+  // keeping track of particle identities through particles tags
+  // Getter objects in methods must take a particle and output wanted quantity
+  // Getter_Crossing objects in methods must take a state and output a position
+  // Wanted quantity must be printable by useful::print
+  // Subject must implement particles()
+  // Particle state must implement tag [UInt type]
+  template <typename Type = double>
+  class Measurer_Store_Crossing_Tagged
+  {
+  public:
+    // Construct given crossing values and space to reserve to
+    // store measurements for each crossing value
+    Measurer_Store_Crossing_Tagged
+    (std::vector<double> crossing_values, std::size_t reserve = 0)
+    : crossing_values{ crossing_values }
+    , values(crossing_values.size())
+    , tags(crossing_values.size())
+    {
+      for (auto& val : values)
+        val.reserve(reserve);
+      for (auto& tag : tags)
+        tag.reserve(reserve);
+    }
+    
+    // Construct given crossing values and space to reserve to
+    // store measurements for each crossing value
+    template <typename Container>
+    Measurer_Store_Crossing_Tagged
+    (Container const& crossing_values, std::size_t reserve = 0)
+    : crossing_values{ get_crossing_values(crossing_values) }
+    , values(crossing_values.size())
+    , tags(crossing_values.size())
+    {
+      for (auto& val : values)
+        val.reserve(reserve);
+      for (auto& tag : tags)
+        tag.reserve(reserve);
+    }
+
+    // Store new values of each crossing value
+    template <typename Subject, typename Getter,
+    typename Getter_Crossing = ctrw::Get_position_component<0>>
+    void update
+    (Subject const& subject, Getter const& get,
+     Getter_Crossing const& get_position = {})
+    {
+      for (auto const& part : subject.particles())
+      {
+        auto last_crossed = std::upper_bound(std::begin(crossing_values),
+          std::end(crossing_values), get_position(part.state_old()));
+        auto current_crossed = std::lower_bound(std::begin(crossing_values),
+          std::end(crossing_values), get_position(part.state_new()));
+        std::size_t mm_min = last_crossed - std::begin(crossing_values);
+        std::size_t mm_max = current_crossed - std::begin(crossing_values);
+        for (std::size_t mm = mm_min; mm < mm_max; ++mm)
+        {
+          values[mm].push_back(get(part));
+          tags[mm].push_back(part.state_new().tag);
+        }
+      }
+    }
+
+    // Get number of stored values at the mmth crossing value
+    std::size_t count(std::size_t mm) const
+    { return values[mm].size(); }
+    
+    // Get stored values
+    // rows: crossing value, columns: crossing event
+    auto const& get() const
+    { return values; }
+
+    // Print crossing value followed by quantity values in each line
+    void print
+    (std::string const& filename,
+     int precision = 8, std::string delimiter = "\t") const
+    {
+      auto output = useful::open_write(filename);
+      output << std::setprecision(precision)
+             << std::scientific;
+      for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
+      {
+        output << crossing_values[mm] << "\t";
+        for (std::size_t part = 0; part < values[mm].size(); ++part)
+        {
+          output << tags[mm][part];
+          useful::print(output, values[mm][part], 1, delimiter);
+        }
+        output << "\n";
+      }
+      output.close();
+    }
+
+    const std::vector<double> crossing_values;  // Store if each of these values is crossed
+
+  private:
+    std::vector<std::vector<Type>> values;  // values[ii][jj] is the jjth stored value
+                                            // at the iith crossing value
+    std::vector<std::vector<std::size_t>> tags;  // tags of particles corresponding to
+                                                 // crossing values
     
     // Convert crossing value container to vector
     template <typename Container>
@@ -647,15 +745,14 @@ namespace ctrw
     (std::string const& filename,
      int precision = 8, std::string delimiter = "\t") const
     {
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
       for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
       {
         output << crossing_values[mm];
-        useful::print(output, values[mm], 1, delimiter);
+        for (auto const& val : values[mm])
+          useful::print(output, val, 1, delimiter);
         output << "\n";
       }
       output.close();
@@ -678,13 +775,14 @@ namespace ctrw
     }
   };
       
-  // Store quantity when given values (e.g. of position)
+  // Store quantity when given crossing values (e.g. of position)
   // are crossed for the first time by each particle
   // between the new particle state and the old particle state
   // Getter objects in methods must take a particle and output wanted quantity
   // Getter_Crossing objects in methods must take a state and output a position
   // Wanted quantity must be printable by useful::print
   // Subject must implement particles()
+  // Particle State must implement tag [UInt type]
   template <typename Type = double>
   class Measurer_Store_FirstCrossing
   {
@@ -744,6 +842,10 @@ namespace ctrw
     auto const& get() const
     { return values; }
     
+    // Get stored values for mmth crossing value
+    auto const& get(std::size_t mm) const
+    { return values[mm]; }
+    
     // Check if mmth crossing value has been crossed by partth particle
     bool crossed(std::size_t mm, std::size_t part) const
     { return particles_crossed[mm].count(part); };
@@ -753,15 +855,14 @@ namespace ctrw
     (std::string const& filename,
      int precision = 8, std::string delimiter = "\t") const
     {
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
       for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
       {
         output << crossing_values[mm];
-        useful::print(output, values[mm], 1, delimiter);
+        for (auto const& val : values[mm])
+          useful::print(output, val, 1, delimiter);
         output << "\n";
       }
       output.close();
@@ -775,6 +876,130 @@ namespace ctrw
     std::vector<std::unordered_set<std::size_t>>
       particles_crossed;                          // Particles that have already crossed
                                                   // each crossing value
+    
+    // Convert crossing value container to vector
+    template <typename Container>
+    auto get_crossing_values(Container const& crossing_values_in)
+    {
+      std::vector<double> crossing_values;
+      for (auto const& val : crossing_values_in)
+        crossing_values.push_back(val);
+      return crossing_values;
+    }
+  };
+      
+  // Store quantity when given values (e.g. of position)
+  // are crossed for the first time by each particle
+  // between the new particle state and the old particle state
+  // keeping track of particle identities through particles tags
+  // Getter objects in methods must take a particle and output wanted quantity
+  // Getter_Crossing objects in methods must take a state and output a position
+  // Wanted quantity must be printable by useful::print
+  // Subject must implement particles()
+  // Particle State must implement tag [std::size_t]
+  template <typename Type = double>
+  class Measurer_Store_FirstCrossing_Tagged
+  {
+  public:
+    // Construct given crossing values and space to reserve to
+    // store measurements for each crossing value
+    Measurer_Store_FirstCrossing_Tagged
+    (std::vector<double> crossing_values, std::size_t reserve = 0)
+    : crossing_values{ crossing_values }
+    , values(crossing_values.size())
+    , particles_crossed(crossing_values.size())
+    , tags(crossing_values.size())
+    {
+      for (auto& val : values)
+        val.reserve(reserve);
+      for (auto& tag : tags)
+        tag.reserve(reserve);
+    }
+    
+    // Construct given crossing values and space to reserve to
+    // store measurements for each crossing value
+    template <typename Container>
+    Measurer_Store_FirstCrossing_Tagged
+    (Container const& crossing_values, std::size_t reserve = 0)
+    : crossing_values{ get_crossing_values(crossing_values) }
+    , values(crossing_values.size())
+    , particles_crossed(crossing_values.size())
+    , tags(crossing_values.size())
+    {
+      for (auto& val : values)
+        val.reserve(reserve);
+      for (auto& tag : tags)
+        tag.reserve(reserve);
+    }
+
+    // Store new values for each crossing value
+    template <typename Subject, typename Getter,
+    typename Getter_Crossing = ctrw::Get_position_component<0>>
+    void update
+    (Subject const& subject, Getter const& get,
+     Getter_Crossing const& get_position = {})
+    {
+      for (auto const& part : subject.particles())
+      {
+        auto last_crossed = std::upper_bound(std::begin(crossing_values),
+          std::end(crossing_values), get_position(part.state_old()));
+        auto current_crossed = std::lower_bound(std::begin(crossing_values),
+          std::end(crossing_values), get_position(part.state_new()));
+        std::size_t mm_min = last_crossed - std::begin(crossing_values);
+        std::size_t mm_max = current_crossed - std::begin(crossing_values);
+        for (std::size_t mm = mm_min; mm < mm_max; ++mm)
+          if (particles_crossed[mm].insert(part.state_new().tag).second)
+          {
+            values[mm].push_back(get(part));
+            tags[mm].push_back(part.state_new().tag);
+          }
+      }
+    }
+
+    // Get number of particles that have crossed mmth crossing value
+    std::size_t count(std::size_t mm) const
+    { return values[mm].size(); }
+    
+    // Get stored values
+    // rows: crossing value, columns: crossing event
+    auto const& get() const
+    { return values; }
+    
+    // Check if mmth crossing value has been crossed by partth particle
+    bool crossed(std::size_t mm, std::size_t part) const
+    { return particles_crossed[mm].count(part); };
+
+    // Print crossing value followed by tag and quantity values in each line
+    void print
+    (std::string const& filename,
+     int precision = 8, std::string delimiter = "\t") const
+    {
+      auto output = useful::open_write(filename);
+      output << std::setprecision(precision)
+             << std::scientific;
+      for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
+      {
+        output << crossing_values[mm] << "\t";
+        for (std::size_t part = 0; part < values[mm].size(); ++part)
+        {
+          output << tags[mm][part];
+          useful::print(output, values[mm][part], 1, delimiter);
+        }
+        output << "\n";
+      }
+      output.close();
+    }
+
+    const std::vector<double> crossing_values;  // Store if each of these values is crossed
+                                                // for the first time
+
+  private:
+    std::vector<std::vector<Type>> values;        // Stored values for each crossing value
+    std::vector<std::unordered_set<std::size_t>>
+      particles_crossed;                          // Particles that have already crossed
+                                                  // each crossing value
+    std::vector<std::vector<std::size_t>> tags;   // tags of particles corresponding to
+                                                  // crossing values
     
     // Convert crossing value container to vector
     template <typename Container>
@@ -860,9 +1085,7 @@ namespace ctrw
     (std::string const& filename,
      int precision = 8, std::string delimiter = "\t") const
     {
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
       for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
@@ -951,9 +1174,7 @@ namespace ctrw
     (std::string const& filename,
      int precision = 8, std::string delimiter = "\t") const
     {
-      std::ofstream output{ filename };
-      if (!output.is_open())
-        throw useful::open_write_error(filename);
+      auto output = useful::open_write(filename);
       output << std::setprecision(precision)
              << std::scientific;
       useful::print(output, values);

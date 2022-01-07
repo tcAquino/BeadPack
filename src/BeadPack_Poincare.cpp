@@ -1,8 +1,9 @@
 //
-//  BeadPack_Conservative.cpp
+//  BeadPack_Poincare.cpp
+//  BeadPack_Poincare
 //
-//  Created by Tomás Aquino on 19/11/2020.
-//  Copyright © 2020 Tomás Aquino. All rights reserved.
+//  Created by Tomás Aquino on 06/01/2022.
+//  Copyright © 2022 Tomás Aquino. All rights reserved.
 //
 
 #include <fstream>
@@ -31,7 +32,8 @@ int main(int argc, const char * argv[])
   
   if (argc == 1)
   {
-    std::cout << "Advective-diffusive particle tracking in 3d beadpacks\n"
+    std::cout << "Plane crossings in\n"
+              << "advective-diffusive particle tracking in 3d beadpacks\n"
               << "with periodic boundary conditions.\n"
               << "----------------------------------------------------\n"
               << "Parameters (default value in []):\n"
@@ -41,12 +43,7 @@ int main(int argc, const char * argv[])
               << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
               << "time_min_diffusion_times : Minimum output time in units of diffusion time\n"
               << "time_max_diffusion_times : Maximum output time in units of diffusion time\n"
-              << "nr_measures : Number of measurements\n"
-              << "measure_spacing : 0 - Logarithmic spacing between measurements\n"
-              << "                : 1 - Linear spacing between measurements\n"
-              << "measure_type : 0 - Output time and all particle positions per file line,\n"
-              << "                   at each measurement time\n"
-              << "               1 - Output particle positions, one per file line, at final time only\n"
+              << "nr_measures : Number of measurement planes\n"
               << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
@@ -88,8 +85,6 @@ int main(int argc, const char * argv[])
   double time_min_diffusion_times = atof(argv[arg++]);
   double time_max_diffusion_times = atof(argv[arg++]);
   std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
-  int measure_spacing = atoi(argv[arg++]);
-  int measure_type = atoi(argv[arg++]);
   int initial_condition_type = atoi(argv[arg++]);
   double initial_condition_size_domains = atof(argv[arg++]);
   std::size_t nr_particles = strtoul(argv[arg++], NULL, 0);
@@ -162,7 +157,6 @@ int main(int argc, const char * argv[])
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up output...\n";
-  
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
   stream << initial_condition_size_domains << "_"
@@ -172,7 +166,6 @@ int main(int argc, const char * argv[])
          << time_min_diffusion_times << "_"
          << time_max_diffusion_times << "_"
          << nr_measures << "_"
-         << measure_spacing << "_"
          << nr_particles << "_"
          << run_nr;
   std::string params = stream.str();
@@ -180,30 +173,59 @@ int main(int argc, const char * argv[])
   std::string filename_output_base = "Data_beadpack";
   
   std::string filename_output_positions = output_dir + "/" +
-    filename_output_base + "_positions_" + initial_condition_name +
+    filename_output_base + "_section_positions_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";
   
-  double time_min = time_min_diffusion_times*diffusion_time;
-  double time_max = time_max_diffusion_times*diffusion_time;
-  double dist_min = magnitude_mean_velocity*time_min;
-  double dist_max = magnitude_mean_velocity*time_max;
-  std::vector<double> measure_times, measure_distances;
-  switch (measure_spacing)
+  // Choose face to monitor crossings
+  // closest to perpendicular to mean velocity vector
+  std::vector<double> velocity_dot_with_direction(geometry.dim, 0.);
+  auto mean_velocity_direction =
+    operation::div_scalar(mean_velocity, magnitude_mean_velocity);
+  std::size_t crossing_face =
+    std::distance(mean_velocity_direction.cbegin(),
+                  std::max_element(mean_velocity_direction.cbegin(),
+                                   mean_velocity_direction.cend(),
+                                   [](double const& first, double const& second)
+                                   { return std::abs(first) < std::abs(second); }));
+  std::vector<double> crossing_direction(geometry.dim, 0.);
+  crossing_direction[crossing_face] = mean_velocity_direction[crossing_face]/
+    std::abs(mean_velocity_direction[crossing_face]);
+  double crossing_face_position = crossing_direction[crossing_face] > 0
+  ? std::abs(geometry.boundaries[crossing_face].second)
+  : std::abs(geometry.boundaries[crossing_face].first);
+  std::vector<double> crossing_values =
+    range::linspace(crossing_face_position,
+                    crossing_face_position+nr_measures*geometry.domain_side,
+                    nr_measures);
+  std::cout << "\tDone!\n";
+  
+  std::cout << "Outputting initial info...\n";
+  std::string filename_output_initial_positions = output_dir + "/" +
+    filename_output_base + "_initial_position_" + initial_condition_name +
+    "_" + data_set + "_" + params + ".dat";
+  auto output_initial_positions
+    = useful::open_write(filename_output_initial_positions);
+  output_initial_positions << std::setprecision(8)
+                           << std::scientific;
+  for (auto const& part : ctrw.particles())
   {
-    case 0:
-      measure_times = range::logspace(time_min, time_max, nr_measures);
-      measure_distances = range::logspace(dist_min, dist_max, nr_measures);
-      break;
-    case 1:
-      measure_times = range::linspace(time_min, time_max, nr_measures);
-      measure_distances = range::linspace(dist_min, dist_max, nr_measures);
-      break;
-    case 2:
-      break;
-    default:
-      throw std::runtime_error{ "Undefined measure spacing." };
+    output_initial_positions << part.state_new().tag;
+    useful::print(output_initial_positions, part.state_new().position, 1);
+    output_initial_positions << "\n";
   }
-  auto getter_position = ctrw::Get_position_periodic{ boundaries.boundary_periodic };
+  output_initial_positions.close();
+  
+  std::string filename_output_crossing_levels = output_dir + "/" +
+    filename_output_base + "_crossing_levels_" + initial_condition_name +
+    "_" + data_set + "_" + params + ".dat";
+  auto output_crossing_levels
+    = useful::open_write(filename_output_crossing_levels);
+  output_crossing_levels << std::setprecision(8)
+                         << std::scientific;
+  output_crossing_levels << crossing_face << "\t"
+                         << crossing_direction[crossing_face] << "\t";
+  useful::print(output_crossing_levels, crossing_values);
+  output_crossing_levels.close();
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up dynamics...\n";
@@ -226,6 +248,42 @@ int main(int argc, const char * argv[])
   ctrw::PTRW ptrw(ctrw, transitions, time_step, 0.);
   std::cout << "\tDone!\n";
   
+  ctrw::Measurer_Store_FirstCrossing_Tagged<std::vector<double>>
+    measurer{ crossing_values, nr_particles };
+  auto getter_position_real =
+    ctrw::Get_position_periodic{ boundaries.boundary_periodic };
+  boundary::Periodic boundary_cubic_cell{ geometry.boundaries };
+  auto getter_position_plane =
+  [&getter_position_real, &crossing_direction]
+  (State const& state)
+  {
+    return operation::dot(getter_position_real(state),
+                          crossing_direction);
+  };
+  auto getter_position_cubic_cell_plane =
+  [&boundary_cubic_cell,&boundaries,&geometry,crossing_face]
+  (CTRW::Particle const& particle)
+  {
+    auto state_copy = particle.state_new();
+    boundaries.boundary_periodic.translate(state_copy.position,state_copy.periodicity);
+    boundary_cubic_cell(state_copy);
+    std::vector<double> position_plane;
+    position_plane.reserve(geometry.dim-1);
+    for (std::size_t dd = 0; dd < geometry.dim; ++dd)
+      if (dd != crossing_face)
+        position_plane.push_back(state_copy.position[dd]);
+      
+    return position_plane;
+  };
+  
+  auto not_finished = [&crossing_values, &measurer]
+  (CTRW::Particle part)
+  {
+    return !(measurer.crossed(crossing_values.size()-1,
+                              part.state_new().tag));
+  };
+  std::cout << "\tDone!\n";
+  
   std::cout << "Starting dynamics...\n";
   std::cout << "\tAdvection time = " << advection_time << "\n";
   std::cout << "\tDiffusion time = " << diffusion_time << "\n";
@@ -234,54 +292,18 @@ int main(int argc, const char * argv[])
   std::cout << "\tDiscretization length = " << length_discretization << "\n";
   std::cout << "\tNr of measures = " << nr_measures << "\n";
   
-  switch (measure_type)
+  while(measurer.count(crossing_values.size()-1) < nr_particles)
   {
-    case 0:
-    {
-      auto output_positions = useful::open_write(filename_output_positions);
-      output_positions << std::setprecision(8)
-                       << std::scientific;
-      
-      for (auto const& time : measure_times)
-      {
-        ptrw.evolve(time);
-        output_positions << time;
-        for (auto const& part : ptrw.particles())
-          useful::print(output_positions, getter_position(part.state_new()), 1);
-        output_positions << "\n";
-        std::cout << "time = " << time
-                  << "\ttime_last_measure = " << time_max
-                  << "\n";
-      }
-      output_positions.close();
-
-      break;
-    }
-    case 1:
-    {
-      auto output_positions = useful::open_write(filename_output_positions);
-      output_positions << std::setprecision(8)
-                       << std::scientific;
-      
-      for (auto const& time : measure_times)
-      {
-        ptrw.evolve(time);
-        std::cout << "time = " << time
-                  << "\ttime_last_measure = " << time_max
-                  << "\n";
-      }
-      for (auto const& part : ptrw.particles())
-      {
-        useful::print(output_positions, getter_position(part.state_new()));
-        output_positions << "\n";
-      }
-      output_positions.close();
-      
-      break;
-    }
-    default:
-      throw std::invalid_argument{ "Undefined measure type" };
+    ptrw.step(not_finished);
+    measurer.update(ptrw,
+                    getter_position_cubic_cell_plane,
+                    getter_position_plane);
   }
+  
+  std::cout << "\tDone!\n";
+  
+  std::cout << "Outputting...\n";
+  measurer.print(filename_output_positions);
   
   std::cout << "\tDone!\n";
   
