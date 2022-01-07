@@ -28,7 +28,7 @@
 
 int main(int argc, const char * argv[])
 {
-  using namespace beadpack::model_bcc_symmetryplanes;
+  using namespace beadpack::model_bcc_cartesian;
   
   if (argc == 1)
   {
@@ -56,6 +56,7 @@ int main(int argc, const char * argv[])
               << "                       : 7 - Uniformly randomly over the interface of all beads\n"
               << "                       : 8 - Load positions from file\n"
               << "initial_condition_size_domains : Size of initial condition box or plane in domain sides\n"
+              << "                                 (ignored if not applicable)\n"
               << "nr_particles : Number of particles to track\n"
               << "run_nr : Nonnegative integer identifier for output files\n"
               << "data_set : Path to input data folder relative to input_dir_base\n"
@@ -67,7 +68,7 @@ int main(int argc, const char * argv[])
     return 0;
   }
   
-  if (argc < 14)
+  if (argc < 12)
     throw useful::bad_parameters();
   
   using State = ctrw::State_periodic<std::vector<double>,

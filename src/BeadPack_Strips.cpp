@@ -46,7 +46,6 @@ int main(int argc, const char * argv[])
               << "measure_spacing : 0 - Logarithmic spacing between measurements\n"
               << "                : 1 - Linear spacing between measurements\n"
               << "                : 2 - Output only at last step\n"
-              << "nr_particles : Number of particles to track\n"
               << "run_nr : Nonnegative integer identifier for output files\n"
               << "data_set : Path to input data folder relative to input_dir_base\n"
               << "           (and model name identifier for output files)\n"
