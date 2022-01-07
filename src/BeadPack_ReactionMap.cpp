@@ -27,7 +27,7 @@
 
 int main(int argc, const char * argv[])
 {
-  using namespace beadpack::model_bcc_cartesian;
+  using namespace beadpack::model_bcc_symmetryplanes;
   
   if (argc == 1)
   {
