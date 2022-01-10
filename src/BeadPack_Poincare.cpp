@@ -190,7 +190,7 @@ int main(int argc, const char * argv[])
   : std::abs(geometry.boundaries[crossing_face].first);
   std::vector<double> crossing_values =
     range::linspace(crossing_face_position,
-                    crossing_face_position+nr_measures*geometry.domain_side,
+                    crossing_face_position+(nr_measures-1)*geometry.domain_side,
                     nr_measures);
   std::cout << "\tDone!\n";
   
