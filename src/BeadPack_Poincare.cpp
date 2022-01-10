@@ -41,8 +41,6 @@ int main(int argc, const char * argv[])
               << "         and diffusion coefficient\n"
               << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
               << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
-              << "time_min_diffusion_times : Minimum output time in units of diffusion time\n"
-              << "time_max_diffusion_times : Maximum output time in units of diffusion time\n"
               << "nr_measures : Number of measurement planes\n"
               << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
@@ -68,7 +66,7 @@ int main(int argc, const char * argv[])
     return 0;
   }
   
-  if (argc < 12)
+  if (argc < 10)
     throw useful::bad_parameters();
   
   using State = ctrw::State_periodic<std::vector<double>,
@@ -83,8 +81,6 @@ int main(int argc, const char * argv[])
   double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
-  double time_min_diffusion_times = atof(argv[arg++]);
-  double time_max_diffusion_times = atof(argv[arg++]);
   std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
   int initial_condition_type = atoi(argv[arg++]);
   double initial_condition_size_domains = atof(argv[arg++]);
@@ -164,8 +160,6 @@ int main(int argc, const char * argv[])
          << peclet << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
-         << time_min_diffusion_times << "_"
-         << time_max_diffusion_times << "_"
          << nr_measures << "_"
          << nr_particles << "_"
          << run_nr;
@@ -208,10 +202,12 @@ int main(int argc, const char * argv[])
     = useful::open_write(filename_output_initial_positions);
   output_initial_positions << std::setprecision(8)
                            << std::scientific;
+  auto getter_position_real =
+    ctrw::Get_position_periodic{ boundaries.boundary_periodic };
   for (auto const& part : ctrw.particles())
   {
     output_initial_positions << part.state_new().tag;
-    useful::print(output_initial_positions, part.state_new().position, 1);
+    useful::print(output_initial_positions, getter_position_real(part.state_new()), 1);
     output_initial_positions << "\n";
   }
   output_initial_positions.close();
@@ -251,8 +247,6 @@ int main(int argc, const char * argv[])
   
   ctrw::Measurer_Store_FirstCrossing_Tagged<std::vector<double>>
     measurer{ crossing_values, nr_particles };
-  auto getter_position_real =
-    ctrw::Get_position_periodic{ boundaries.boundary_periodic };
   boundary::Periodic boundary_cubic_cell{ geometry.boundaries };
   auto getter_position_plane =
   [&getter_position_real, &crossing_direction]
