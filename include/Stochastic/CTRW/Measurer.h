@@ -979,10 +979,10 @@ namespace ctrw
              << std::scientific;
       for (std::size_t mm = 0; mm < crossing_values.size(); ++mm)
       {
-        output << crossing_values[mm] << delimiter;
+        output << crossing_values[mm];
         for (std::size_t part = 0; part < values[mm].size(); ++part)
         {
-          output << tags[mm][part];
+          output << delimiter << tags[mm][part];
           useful::print(output, values[mm][part], 1, delimiter);
         }
         output << "\n";
@@ -1092,8 +1092,8 @@ namespace ctrw
       {
         output << crossing_values[mm];
         useful::print(output, values[mm], 1, delimiter);
-        output << "\n";
       }
+      output << "\n";
       output.close();
     }
 

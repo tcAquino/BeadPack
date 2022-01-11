@@ -141,12 +141,20 @@ int main(int argc, const char * argv[])
   std::string initial_condition_name =
     beadpack::initial_condition_name(initial_condition_type);
   
+  boundary::Periodic boundary_cubic_cell{ geometry.boundaries };
   CTRW ctrw{
     beadpack::make_particles<CTRW::Particle>(
       nr_particles, initial_condition_type,
       domain_midpoint, initial_box_centered,
       velocity_field, mean_velocity,
-      bead_pack, boundaries.boundary_periodic,
+      bead_pack,
+      [&boundary_cubic_cell, &boundaries]
+      (State& state, State const& state_old = {})
+      {
+        bool b1 = boundary_cubic_cell(state, state_old);
+        bool b2 = boundaries.boundary_periodic(state, state_old);
+        return b1 || b2;
+      },
       length_discretization,
       filename_input_positions,
       state_maker),
@@ -222,6 +230,7 @@ int main(int argc, const char * argv[])
   output_crossing_levels << crossing_face << "\t"
                          << crossing_direction[crossing_face] << "\t";
   useful::print(output_crossing_levels, crossing_values);
+  output_crossing_levels << "\n";
   output_crossing_levels.close();
   std::cout << "\tDone!\n";
   
@@ -247,7 +256,6 @@ int main(int argc, const char * argv[])
   
   ctrw::Measurer_Store_FirstCrossing_Tagged<std::vector<double>>
     measurer{ crossing_values, nr_particles };
-  boundary::Periodic boundary_cubic_cell{ geometry.boundaries };
   auto getter_position_plane =
   [&getter_position_real, &crossing_direction]
   (State const& state)
@@ -288,6 +296,8 @@ int main(int argc, const char * argv[])
   std::cout << "\tNr of measures = " << nr_measures << "\n";
   
   std::size_t nr_finished = 0;
+  std::size_t counter = 0;
+  std::size_t notify_every = 1000;
   while(measurer.count(crossing_values.size()-1) < nr_particles)
   {
     ptrw.step(not_finished);
@@ -299,6 +309,22 @@ int main(int argc, const char * argv[])
       nr_finished = measurer.count(crossing_values.size()-1);
       std::cout << nr_finished << " of " << nr_particles << " particles have crossed last level\n";
     }
+    
+    if (counter % notify_every == 0)
+      std::cout
+        << "\n"
+        << "Last particle at "
+        << getter_position_plane(
+             std::min_element(ptrw.particles().cbegin(), ptrw.particles().cend(),
+                              [&getter_position_plane]
+                              (CTRW::Particle const& p1, CTRW::Particle const& p2)
+                              { return getter_position_plane(p1.state_new()) < getter_position_plane(p2.state_new()); })->state_new())
+        << "\n"
+        << "Last level = " << crossing_values.back() << "\n"
+        << "Current time [adv times] = " << ptrw.time()/advection_time << "\n"
+        << "Current time [diff times] = " << ptrw.time()/diffusion_time << "\n"
+        << "\n";
+    ++counter;
   }
   
   std::cout << "\tDone!\n";

@@ -268,7 +268,10 @@ namespace beadpack
     std::vector<double> weights;
     weights.reserve(bead_pack.nr_beads());
     for (auto const& bead : bead_pack.beads())
-      weights.push_back(bead.radius*bead.radius);
+    {
+      double radius = bead.radius+length_near_wall;
+      weights.push_back(radius*bead.radius);
+    }
     std::discrete_distribution<std::size_t> dist_beads{
       weights.begin(), weights.end() };
     
@@ -297,6 +300,7 @@ namespace beadpack
   // Distribute particles uniformly randomly at a
   // distance length_near_wall to the void-bead interface
   // over all beads in the beadpack
+  // Discard particles outside initial_box
   // Boundary object enforces periodic boundary conditions
   // on beadpack if necessary
   template
@@ -304,6 +308,7 @@ namespace beadpack
   typename Boundary, typename StateMaker>
   auto make_particles_random_near_wall_uniform_bead
   (std::size_t nr_particles, BeadPack const& bead_pack,
+   std::vector<std::pair<double, double>> const& initial_box,
    Boundary const& boundary, double length_near_wall,
    StateMaker state_maker)
   {
@@ -316,7 +321,10 @@ namespace beadpack
     std::vector<double> weights;
     weights.reserve(bead_pack.nr_beads());
     for (auto const& bead : bead_pack.beads())
-      weights.push_back(bead.radius*bead.radius);
+    {
+      double radius = bead.radius+length_near_wall;
+      weights.push_back(radius*bead.radius);
+    }
     std::discrete_distribution<std::size_t> dist_beads{
       weights.begin(), weights.end() };
     
@@ -332,7 +340,10 @@ namespace beadpack
       state.position =
         operation::plus(bead_pack.bead(bead).center,
           operation::times_scalar(radius, dist(rng)));
-      
+      for (std::size_t dd = 0; dd < state.position.size(); ++dd)
+        if (state.position[dd] < initial_box[dd].first
+            || state.position[dd] > initial_box[dd].second)
+          continue;
       boundary(state);
       
       // Discard if too close to another bead
@@ -368,11 +379,12 @@ namespace beadpack
   typename Boundary, typename StateMaker>
   auto make_particles_random_at_wall_uniform_bead
   (std::size_t nr_particles, BeadPack const& bead_pack,
+   std::vector<std::pair<double, double>> const& initial_box,
    Boundary const& boundary, StateMaker state_maker)
   {
     return
       make_particles_random_near_wall_uniform_bead<Particle>(
-        nr_particles, bead_pack, boundary, 0., state_maker);
+        nr_particles, bead_pack, initial_box, boundary, 0., state_maker);
   }
   
   // Load particle positions from file
@@ -490,7 +502,7 @@ namespace beadpack
       case 5:
         return
           beadpack::make_particles_random_near_wall_uniform_bead<Particle>(
-            nr_particles, bead_pack, boundary_periodic,
+            nr_particles, bead_pack, initial_box, boundary_periodic,
             length_near_wall, state_maker);
       case 6:
         return
@@ -500,7 +512,7 @@ namespace beadpack
       case 7:
         return
           beadpack::make_particles_random_at_wall_uniform_bead<Particle>(
-            nr_particles, bead_pack, boundary_periodic,
+            nr_particles, bead_pack, initial_box, boundary_periodic,
             state_maker);
       case 8:
         return
