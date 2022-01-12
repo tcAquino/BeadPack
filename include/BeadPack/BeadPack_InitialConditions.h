@@ -270,7 +270,7 @@ namespace beadpack
     for (auto const& bead : bead_pack.beads())
     {
       double radius = bead.radius+length_near_wall;
-      weights.push_back(radius*bead.radius);
+      weights.push_back(radius*radius);
     }
     std::discrete_distribution<std::size_t> dist_beads{
       weights.begin(), weights.end() };
@@ -323,7 +323,7 @@ namespace beadpack
     for (auto const& bead : bead_pack.beads())
     {
       double radius = bead.radius+length_near_wall;
-      weights.push_back(radius*bead.radius);
+      weights.push_back(radius*radius);
     }
     std::discrete_distribution<std::size_t> dist_beads{
       weights.begin(), weights.end() };
