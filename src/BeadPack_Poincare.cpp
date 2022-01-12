@@ -53,6 +53,8 @@ int main(int argc, const char * argv[])
               << "                       : 6 - Uniformly randomly over the interface in the periodic domain\n"
               << "                       : 7 - Uniformly randomly over the interface of all beads\n"
               << "                       : 8 - Load positions from file\n"
+              << "                       : -1 - Uniformly randomly over the bead surfaces in the primitive\n"
+              << "                              unit cell\n"
               << "initial_condition_size_domains : Size of initial condition box or plane in domain sides\n"
               << "                                 (ignored if not applicable)\n"
               << "nr_particles : Number of particles to track\n"
@@ -139,25 +141,60 @@ int main(int argc, const char * argv[])
   }
 
   std::string initial_condition_name =
-    beadpack::initial_condition_name(initial_condition_type);
+    initial_condition_type == -1
+    ? "at_wall_uniform_primitive_cell"
+    : beadpack::initial_condition_name(initial_condition_type);
   
   boundary::Periodic boundary_cubic_cell{ geometry.boundaries };
-  CTRW ctrw{
-    beadpack::make_particles<CTRW::Particle>(
-      nr_particles, initial_condition_type,
-      domain_midpoint, initial_box_centered,
-      velocity_field, mean_velocity,
-      bead_pack,
-      [&boundary_cubic_cell, &boundaries]
-      (State& state, State const& state_old = {})
-      {
-        bool b1 = boundary_cubic_cell(state, state_old);
-        bool b2 = boundaries.boundary_periodic(state, state_old);
-        return b1 || b2;
-      },
-      length_discretization,
-      filename_input_positions,
-      state_maker),
+  auto make_particles =
+  [nr_particles, initial_condition_type,
+  &geometry, &domain_midpoint, &initial_box_centered,
+  &velocity_field, &mean_velocity,
+  &bead_pack, &boundaries, &boundary_cubic_cell,
+  length_discretization,
+  &filename_input_positions,&state_maker]
+  {
+    if (initial_condition_type == -1)
+    {
+      BeadPack beads_unit_cell{
+        {
+          domain_midpoint,
+          { geometry.boundaries[0].first, geometry.boundaries[1].first, geometry.boundaries[2].first },
+          { geometry.boundaries[0].second, geometry.boundaries[1].first, geometry.boundaries[2].first },
+          { geometry.boundaries[0].first, geometry.boundaries[1].second, geometry.boundaries[2].first },
+          { geometry.boundaries[0].second, geometry.boundaries[1].second, geometry.boundaries[2].first },
+          { geometry.boundaries[0].first, geometry.boundaries[1].first, geometry.boundaries[2].second },
+          { geometry.boundaries[0].second, geometry.boundaries[1].first, geometry.boundaries[2].second },
+          { geometry.boundaries[0].first, geometry.boundaries[1].second, geometry.boundaries[2].second },
+          { geometry.boundaries[0].second, geometry.boundaries[1].second, geometry.boundaries[2].second }
+        },
+        geometry.radius
+      };
+      
+      return beadpack::make_particles<CTRW::Particle>(nr_particles, 6,
+        domain_midpoint, initial_box_centered,
+        velocity_field, mean_velocity,
+        beads_unit_cell,
+        [&boundary_cubic_cell,&boundaries](State& state_new, State const& state_old = {})
+        {
+          bool b1 = boundary_cubic_cell(state_new, state_old);
+          boundaries.boundary_periodic(state_new, state_old);
+          return b1;
+        },
+        length_discretization,
+        filename_input_positions, state_maker);
+    }
+    else
+      return
+        beadpack::make_particles<CTRW::Particle>(nr_particles, initial_condition_type,
+                                                 domain_midpoint, initial_box_centered,
+                                                 velocity_field, mean_velocity,
+                                                 bead_pack, boundaries.boundary_periodic,
+                                                 length_discretization,
+                                                 filename_input_positions, state_maker);
+  };
+  
+  CTRW ctrw{ make_particles(),
     CTRW::Tag{} };
   std::cout << "\tDone!\n";
   
