@@ -39,12 +39,14 @@ int main(int argc, const char * argv[])
               << "         and diffusion coefficient\n"
               << "time_step_accuracy_adv : Maximum time step size in units of advection time\n"
               << "time_step_accuracy_diff : Minimum time step size in units of advection time\n"
-              << "time_min_diffusion_times : Minimum output time in units of diffusion time\n"
-              << "time_max_diffusion_times : Maximum output time in units of diffusion time\n"
+              << "time_min_nondim : Minimum output time (in units specified by measure type)\n"
+              << "time_max_nondim : Minimum output time (in units specified by measure type)\n"
               << "nr_measures : Number of measurements\n"
               << "measure_spacing : 0 - Logarithmic spacing between measurements\n"
               << "                : 1 - Linear spacing between measurements\n"
-              << "measure_type : 0 - Output time and all particle positions per file line,\n"
+              << "measure_units : 0 - Measure times in units of diffusion time\n"
+              << "                1 - Measure times in units of advection time\n"
+              << "measure_type :  0 - Output time and all particle positions per file line,\n"
               << "                   at each measurement time\n"
               << "               1 - Output particle positions, one per file line, at final time only\n"
               << "               2 - Output position fluctuations autocorrelation in time\n"
@@ -72,7 +74,7 @@ int main(int argc, const char * argv[])
     return 0;
   }
   
-  if (argc < 14)
+  if (argc < 15)
     throw useful::bad_parameters();
   
   using State = ctrw::State_periodic<std::vector<double>,
@@ -87,10 +89,11 @@ int main(int argc, const char * argv[])
   double peclet = atof(argv[arg++]);
   double time_step_accuracy_adv = atof(argv[arg++]);
   double time_step_accuracy_diff = atof(argv[arg++]);
-  double time_min_diffusion_times = atof(argv[arg++]);
-  double time_max_diffusion_times = atof(argv[arg++]);
+  double time_min_nondim = atof(argv[arg++]);
+  double time_max_nondim = atof(argv[arg++]);
   std::size_t nr_measures = strtoul(argv[arg++], NULL, 0);
   int measure_spacing = atoi(argv[arg++]);
+  int measure_units = atoi(argv[arg++]);
   int measure_type = atoi(argv[arg++]);
   int initial_condition_type = atoi(argv[arg++]);
   double initial_condition_size_domains = atof(argv[arg++]);
@@ -164,17 +167,17 @@ int main(int argc, const char * argv[])
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up output...\n";
-  
   std::stringstream stream;
   stream << std::scientific << std::setprecision(2);
   stream << initial_condition_size_domains << "_"
          << peclet << "_"
          << time_step_accuracy_diff << "_"
          << time_step_accuracy_adv << "_"
-         << time_min_diffusion_times << "_"
-         << time_max_diffusion_times << "_"
+         << time_min_nondim << "_"
+         << time_max_nondim << "_"
          << nr_measures << "_"
          << measure_spacing << "_"
+         << measure_units << "_"
          << nr_particles << "_"
          << run_nr;
   std::string params = stream.str();
@@ -185,20 +188,19 @@ int main(int argc, const char * argv[])
     filename_output_base + "_positions_" + initial_condition_name +
     "_" + data_set + "_" + params + ".dat";
   
-  double time_min = time_min_diffusion_times*diffusion_time;
-  double time_max = time_max_diffusion_times*diffusion_time;
-  double dist_min = magnitude_mean_velocity*time_min;
-  double dist_max = magnitude_mean_velocity*time_max;
-  std::vector<double> measure_times, measure_distances;
+  double measure_converter = measure_units
+  ? advection_time
+  : diffusion_time;
+  double time_min = time_min_nondim*measure_converter;
+  double time_max = time_max_nondim*measure_converter;
+  std::vector<double> measure_times;
   switch (measure_spacing)
   {
     case 0:
       measure_times = range::logspace(time_min, time_max, nr_measures);
-      measure_distances = range::logspace(dist_min, dist_max, nr_measures);
       break;
     case 1:
       measure_times = range::linspace(time_min, time_max, nr_measures);
-      measure_distances = range::linspace(dist_min, dist_max, nr_measures);
       break;
     case 2:
       break;
@@ -297,6 +299,10 @@ int main(int argc, const char * argv[])
                 << std::scientific;
         
       ptrw.evolve(measure_times[0]);
+      
+      std::cout << "\tTime [adv times] = " << measure_times[0]/advection_time << "\t"
+                << "Max time [adv times] = " << measure_times.back()/advection_time << "\n";
+      
       for (std::size_t pp = 0; pp < nr_particles; ++pp)
         initial_position[pp] = getter_position(ctrw.particles(pp));
       auto position_mean = State::Position(Geometry::dim);
@@ -316,8 +322,8 @@ int main(int argc, const char * argv[])
       {
         ptrw.evolve(measure_times[tt]);
         
-        std::cout << "\tTime = " << measure_times[tt] << "\t"
-                  << "Max time = " << measure_times.back() << "\n";
+        std::cout << "\tTime [adv times] = " << measure_times[tt]/advection_time << "\t"
+                  << "Max time [adv times] = " << measure_times.back()/advection_time << "\n";
         
         auto position_mean = State::Position(Geometry::dim);
         for (auto const& part : ctrw.particles())
