@@ -47,18 +47,20 @@ int main(int argc, const char * argv[])
               << "measure_type : 0 - Output time and all particle positions per file line,\n"
               << "                   at each measurement time\n"
               << "               1 - Output particle positions, one per file line, at final time only\n"
+              << "               2 - Output position fluctuations autocorrelation in time\n"
               << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in the periodic domain\n"
-              << "                       : 3 - Flux-weighted in the void space in the periodic domain\n"
+              << "                       : 3 - Flux-weighted in the void space in bounding box\n"
               << "                       : 4 - Uniformly randomly over twice the discretization distance\n"
-              << "                             from the interface in the periodic domain\n"
+              << "                             from the interface in bounding box\n"
               << "                       : 5 - Uniformly randomly over twice the discretization distance\n"
               << "                             from the interface of all beads\n"
               << "                       : 6 - Uniformly randomly over the interface in the periodic domain\n"
               << "                       : 7 - Uniformly randomly over the interface of all beads\n"
               << "                       : 8 - Load positions from file\n"
               << "initial_condition_size_domains : Size of initial condition box or plane in domain sides\n"
+              << "                                 (ignored if not applicable)\n"
               << "nr_particles : Number of particles to track\n"
               << "run_nr : Nonnegative integer identifier for output files\n"
               << "data_set : Path to input data folder relative to input_dir_base\n"
@@ -203,7 +205,8 @@ int main(int argc, const char * argv[])
     default:
       throw std::runtime_error{ "Undefined measure spacing." };
   }
-  auto getter_position = ctrw::Get_position_periodic{ boundaries.boundary_periodic };
+  auto getter_position = ctrw::Get_new_from_particle{
+    ctrw::Get_position_periodic{ boundaries.boundary_periodic } };
   std::cout << "\tDone!\n";
   
   std::cout << "Setting up dynamics...\n";
@@ -247,7 +250,7 @@ int main(int argc, const char * argv[])
         ptrw.evolve(time);
         output_positions << time;
         for (auto const& part : ptrw.particles())
-          useful::print(output_positions, getter_position(part.state_new()), 1);
+          useful::print(output_positions, getter_position(part), 1);
         output_positions << "\n";
         std::cout << "time = " << time
                   << "\ttime_last_measure = " << time_max
@@ -272,11 +275,63 @@ int main(int argc, const char * argv[])
       }
       for (auto const& part : ptrw.particles())
       {
-        useful::print(output_positions, getter_position(part.state_new()));
+        useful::print(output_positions, getter_position(part));
         output_positions << "\n";
       }
       output_positions.close();
       
+      break;
+    }
+    case 2:
+    {
+      std::vector<State::Position> initial_position(nr_particles);
+      
+      std::string filename_output_correlation_time = output_dir + "/" +
+        filename_output_base + "_position_fluctuations_autocorrelation_time_" + initial_condition_name +
+        "_" + data_set + "_" + params + ".dat";
+      auto output_correlation_time = useful::open_write(filename_output_correlation_time);
+      output_correlation_time << std::setprecision(8)
+                              << std::scientific;
+      
+      std::cout << std::setprecision(2)
+                << std::scientific;
+        
+      ptrw.evolve(measure_times[0]);
+      for (std::size_t pp = 0; pp < nr_particles; ++pp)
+        initial_position[pp] = getter_position(ctrw.particles(pp));
+      auto position_mean = State::Position(Geometry::dim);
+      for (auto const& part : ctrw.particles())
+        operation::plus_InPlace(position_mean, getter_position(part));
+      operation::div_scalar_InPlace(position_mean, nr_particles);
+      double autocorrelation = 0.;
+      for (std::size_t pp = 0; pp < nr_particles; ++pp)
+        autocorrelation +=
+          operation::dot(operation::minus(getter_position(ctrw.particles(pp)), position_mean),
+                         operation::minus(initial_position[pp], position_mean));
+      autocorrelation /= nr_particles;
+      output_correlation_time << measure_times[0] << "\t"
+                              << autocorrelation << "\n";
+      
+      for (std::size_t tt = 1; tt < measure_times.size(); ++tt)
+      {
+        ptrw.evolve(measure_times[tt]);
+        
+        std::cout << "\tTime = " << measure_times[tt] << "\t"
+                  << "Max time = " << measure_times.back() << "\n";
+        
+        auto position_mean = State::Position(Geometry::dim);
+        for (auto const& part : ctrw.particles())
+          operation::plus_InPlace(position_mean, getter_position(part));
+        operation::div_scalar_InPlace(position_mean, nr_particles);
+        double autocorrelation = 0.;
+        for (std::size_t pp = 0; pp < nr_particles; ++pp)
+          autocorrelation +=
+            operation::dot(operation::minus(getter_position(ctrw.particles(pp)), position_mean),
+                           operation::minus(initial_position[pp], position_mean));
+        autocorrelation /= nr_particles;
+        output_correlation_time << measure_times[tt] << "\t"
+                                << autocorrelation << "\n";
+      }
       break;
     }
     default:

@@ -80,7 +80,7 @@ namespace beadpack
   template
   <typename Particle, typename BeadPack,
   typename FlowField, typename Boundary, typename StateMaker>
-  auto make_particles_random_flux_weighted_box
+  auto make_particles_random_fluxweighted_box
   (std::size_t nr_particles, BeadPack const& bead_pack,
    FlowField const& flow_field, Boundary const& boundary,
    std::vector<std::pair<double, double>> const& boundaries,
@@ -235,11 +235,11 @@ namespace beadpack
     }
     
     // Choose from admissible states with probability
-    // proportional to flow velocity magnitude
+    // proportional to flow velocity magnitude along plane normal
     std::vector<double> weights;
     for (auto const& state : states)
-      weights.push_back(operation::abs(
-        flow_field(state.position)));
+      weights.push_back(std::abs(
+        operation::dot(flow_field(state.position), plane_normal)));
     std::discrete_distribution<std::size_t> fw_dist{
       weights.begin(), weights.end() };
     for (std::size_t ii = 0; ii < nr_particles; ++ii)
@@ -485,7 +485,7 @@ namespace beadpack
             initial_box, state_maker);
       case 3:
         return
-          beadpack::make_particles_random_flux_weighted_box<Particle>(
+          beadpack::make_particles_random_fluxweighted_box<Particle>(
             nr_particles, bead_pack, velocity_field,
             boundary_periodic, initial_box, state_maker);
       case 4:
@@ -532,11 +532,11 @@ namespace beadpack
       case 0:
         return "uniform_plane";
       case 1:
-        return "flux_weighted_plane";
+        return "fluxweighted_plane";
       case 2:
         return "uniform_box";
       case 3:
-        return "flux_weighted_box";
+        return "fluxweighted_box";
       case 4:
         return "near_wall_uniform_unit_cell";
       case 5:

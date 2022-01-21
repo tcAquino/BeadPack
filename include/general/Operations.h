@@ -606,6 +606,12 @@ namespace operation
       result += input_1[ii] * input_2[ii];
     return result;
   }
+  
+  // Dot product
+  auto dot(double input_1, double input_2)
+  {
+    return input_1*input_2;
+  }
 
   // Container of containers dotted into container, = sum_j (input_1)_{ij} (input_2)_j
   template <typename Container_outer, typename Container_inner>

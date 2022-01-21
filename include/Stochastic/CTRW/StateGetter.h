@@ -87,6 +87,20 @@ namespace ctrw
     { return operation::project<dd>(state.position); }
   };
   
+  // Get dd component of state.position given state
+  struct Get_position_component_arg
+  {
+    std::size_t dd;
+    
+    Get_position_component_arg(std::size_t dd)
+    : dd{ dd }
+    {}
+    
+    template <typename State>
+    auto operator()(State const& state) const
+    { return state.position[dd]; }
+  };
+  
   // Get projection of state.position along direction given state
   struct Get_position_projection
   {

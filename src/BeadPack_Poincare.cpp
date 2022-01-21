@@ -21,14 +21,13 @@
 #include "Stochastic/CTRW/JumpGenerator.h"
 #include "Stochastic/CTRW/Measurer.h"
 #include "Stochastic/CTRW/PTRW.h"
-#include "Stochastic/CTRW/Reaction.h"
 #include "Stochastic/CTRW/State.h"
 #include "Stochastic/CTRW/StateGetter.h"
 #include "Stochastic/CTRW/Transitions_State.h"
 
 int main(int argc, const char * argv[])
 {
-  using namespace beadpack::model_bcc_symmetryplanes;
+  using namespace beadpack::model_bcc_cartesian;
   
   if (argc == 1)
   {
@@ -289,7 +288,6 @@ int main(int argc, const char * argv[])
       boundaries.boundary_reflecting_periodic
   };
   ctrw::PTRW ptrw(ctrw, transitions, time_step, 0.);
-  std::cout << "\tDone!\n";
   
   ctrw::Measurer_Store_FirstCrossing_Tagged<std::vector<double>>
     measurer{ crossing_values, nr_particles };
