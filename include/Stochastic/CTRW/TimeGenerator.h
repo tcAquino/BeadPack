@@ -24,7 +24,7 @@ namespace ctrw
   // }
   
   // Deterministic time step
-  template <typename val_type>
+  template <typename val_type = double>
   class TimeGenerator_Step
   {
     val_type dt;

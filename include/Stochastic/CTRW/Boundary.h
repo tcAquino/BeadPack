@@ -390,6 +390,89 @@ namespace boundary
       return true;
     }
   };
+  
+  // Reflecting boundaries on the inside of a circle
+  // State must define: position (vector type)
+  class RadialReflecting_2d
+  {
+  public:
+    const double radius;
+
+    // Construct given domain radius along reflecting dimensions
+    RadialReflecting_2d(double radius)
+    : radius{ radius }
+    {}
+
+    // Check if position is out of bounds
+    template <typename Position>
+    bool outOfBounds(Position const& position) const
+    {
+      return operation::abs_sq(position) > radius_sq;
+    }
+
+    // Enforce boundary condition
+    template <typename State>
+    bool operator()(State& state, State const& state_old) const
+    {
+      if (!outOfBounds(state.position))
+        return false;
+      
+      auto position_old = state_old.position;
+      std::vector<double> jump = operation::minus(state.position, position_old);
+      std::vector<double> tangent_at_contact(2);
+      
+      // Iterate reflection procedure until position is inside boundary
+      while (1)
+      {
+        // Fraction alpha of jump up to the boundary
+        double pos_dot_jump = operation::dot(position_old, jump);
+        double norm_sq_jump = operation::abs_sq(jump);
+        double pos_sq_old = operation::abs_sq(position_old);
+        double aux = pos_dot_jump/norm_sq_jump;
+        double alpha = std::sqrt(aux*aux
+                                 +(radius_sq-pos_sq_old)/norm_sq_jump)-aux;
+        
+        // Avoid numerical issues
+        if (alpha <= 0.)
+        {
+          double radial_pos_sq = operation::abs_sq(state.position);
+          operation::times_scalar_InPlace(radius/std::sqrt(radial_pos_sq),
+                                          state.position);
+          break;
+        }
+        
+        // Place old position at contact
+        for (std::size_t dd = 0; dd < 2; ++dd)
+          position_old[dd] += alpha*jump[dd];
+
+        // Tangent to boundary at contact
+        tangent_at_contact[0] = position_old[1]/radius;
+        tangent_at_contact[1] = -position_old[0]/radius;
+
+        // Angle between jump and tangent to boundary at contact
+        double tangent_dot_jump = operation::dot(tangent_at_contact, jump);
+        double cos_contact_angle = tangent_dot_jump/std::sqrt(norm_sq_jump);
+        double contact_angle = std::acos(cos_contact_angle);
+
+        // Outgoing jump at collision, rotate outer jump and flip the direction
+        operation::rotate(jump, -2.*contact_angle);
+        operation::times_scalar_InPlace(1.-alpha, jump);
+        
+        // Place particle at reflected position
+        operation::plus(position_old, jump,
+                        state.position);
+        
+        // If inside boundary, done
+        if(!outOfBounds(state.position))
+          break;
+      }
+      
+      return true;
+    }
+
+  private:
+    const double radius_sq{ radius*radius };
+  };
 
   // Reflecting boundaries on the inside of an infinite cylinder in 3d
   // Cylinder longitudinal axis is dd_open, which may be 0 or 2
@@ -414,7 +497,7 @@ namespace boundary
       double radial_pos_sq = std::inner_product(
         position.cbegin()+begin_transverse, position.cbegin()+begin_transverse+2,
         position.cbegin()+begin_transverse, 0.);
-      return radial_pos_sq > radius;
+      return radial_pos_sq > radius_sq;
     }
 
     // Enforce boundary condition
@@ -438,7 +521,7 @@ namespace boundary
       // Iterate reflection procedure until position is inside boundary
       while (1)
       {
-        // Fraction alpha of jump outside of boundary
+        // Fraction alpha of jump up to the boundary
         double pos_dot_jump = std::inner_product(
           position_radial_old.cbegin(), position_radial_old.cend(),
           jump_radial.cbegin(), 0.);
@@ -447,8 +530,20 @@ namespace boundary
           jump_radial.cbegin(), 0.);
         double radial_pos_sq_old = operation::abs_sq(position_radial_old);
         double aux = pos_dot_jump/norm_sq_jump;
-        double alpha = aux*(std::sqrt(1.+(radius_sq-radial_pos_sq_old)
-                                      /(aux*aux*norm_sq_jump)) - 1.);
+        double alpha = std::sqrt(aux*aux
+                                 +(radius_sq-radial_pos_sq_old)/norm_sq_jump)-aux;
+        
+        // Avoid numerical issues
+        if (alpha <= 0.)
+        {
+           double radial_pos_sq = std::inner_product(
+             state.position.cbegin()+begin_transverse,
+             state.position.cbegin()+begin_transverse+2,
+             state.position.cbegin()+begin_transverse, 0.);
+           for (std::size_t dd = 0; dd < 2; ++dd)
+             state.position[dd+begin_transverse] *= radius/std::sqrt(radial_pos_sq);
+           break;
+        }
 
         // Place old position at contact
         for (std::size_t dd = 0; dd < 2; ++dd)
@@ -465,12 +560,9 @@ namespace boundary
         double cos_contact_angle = tangent_dot_jump/std::sqrt(norm_sq_jump);
         double contact_angle = std::acos(cos_contact_angle);
 
-        double cos2 = std::cos(2.*contact_angle);
-        double sin2 = std::sin(2.*contact_angle);
-
         // Outgoing jump at collision, rotate outer jump and flip the direction
-        jump_radial[0] = (1.-alpha)*(cos2*jump_radial[0] + sin2*jump_radial[1]);
-        jump_radial[1] = (1.-alpha)*(-sin2*jump_radial[0] + cos2*jump_radial[1]);
+        operation::rotate(jump_radial, -2.*contact_angle);
+        operation::times_scalar_InPlace(1.-alpha, jump_radial);
         
         // Place particle at reflected position
         for (std::size_t dd = 0; dd < 2; ++dd)
@@ -480,20 +572,6 @@ namespace boundary
         // If inside boundary, done
         if(!outOfBounds(state.position))
           break;
-        
-        // Avoid numerical issues
-        // If jump is numerically zero, place at closest boundary, done
-        if (state.position[begin_transverse] == position_radial_old[0]
-            && state.position[1+begin_transverse] == position_radial_old[1])
-        {
-          double radial_pos_sq = std::inner_product(
-            state.position.cbegin()+begin_transverse,
-            state.position.cbegin()+begin_transverse+2,
-            state.position.cbegin()+begin_transverse, 0.);
-          for (std::size_t dd = 0; dd < 2; ++dd)
-            state.position[dd+begin_transverse] *= radius/std::sqrt(radial_pos_sq);
-          break;
-        }
       }
       
       return true;

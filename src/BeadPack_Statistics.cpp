@@ -648,7 +648,7 @@ int main(int argc, const char * argv[])
       for (std::size_t ss = 0; ss < distances.size(); ++ss)
       {
         for (std::size_t pp = 0; pp < particles.size(); ++pp)
-          velocity_autocorrelation[ss] += (velocity_magnitude[0][pp]-velocity_mean[ss])*
+          velocity_autocorrelation[ss] += (velocity_magnitude[0][pp]-velocity_mean[0])*
             (velocity_magnitude[ss][pp]-velocity_mean[ss]);
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);
@@ -730,7 +730,7 @@ int main(int argc, const char * argv[])
       for (std::size_t tt = 0; tt < times.size(); ++tt)
       {
         for (std::size_t pp = 0; pp < particles.size(); ++pp)
-          velocity_autocorrelation[tt] += (velocity_magnitude[0][pp]-velocity_mean[tt])*
+          velocity_autocorrelation[tt] += (velocity_magnitude[0][pp]-velocity_mean[0])*
             (velocity_magnitude[tt][pp]-velocity_mean[tt]);
       }
       operation::div_InPlace(velocity_autocorrelation, surviving_trajectories);

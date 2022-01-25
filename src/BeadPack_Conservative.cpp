@@ -305,15 +305,17 @@ int main(int argc, const char * argv[])
       
       for (std::size_t pp = 0; pp < nr_particles; ++pp)
         initial_position[pp] = getter_position(ctrw.particles(pp));
-      auto position_mean = State::Position(Geometry::dim);
+      auto initial_position_mean = State::Position(Geometry::dim);
       for (auto const& part : ctrw.particles())
-        operation::plus_InPlace(position_mean, getter_position(part));
-      operation::div_scalar_InPlace(position_mean, nr_particles);
+        operation::plus_InPlace(initial_position_mean, getter_position(part));
+      operation::div_scalar_InPlace(initial_position_mean, nr_particles);
       double autocorrelation = 0.;
       for (std::size_t pp = 0; pp < nr_particles; ++pp)
         autocorrelation +=
-          operation::dot(operation::minus(getter_position(ctrw.particles(pp)), position_mean),
-                         operation::minus(initial_position[pp], position_mean));
+          operation::dot(operation::minus(getter_position(ctrw.particles(pp)),
+                                          initial_position_mean),
+                         operation::minus(initial_position[pp],
+                                          initial_position_mean));
       autocorrelation /= nr_particles;
       output_correlation_time << measure_times[0] << "\t"
                               << autocorrelation << "\n";
@@ -332,8 +334,10 @@ int main(int argc, const char * argv[])
         double autocorrelation = 0.;
         for (std::size_t pp = 0; pp < nr_particles; ++pp)
           autocorrelation +=
-            operation::dot(operation::minus(getter_position(ctrw.particles(pp)), position_mean),
-                           operation::minus(initial_position[pp], position_mean));
+            operation::dot(operation::minus(getter_position(ctrw.particles(pp)),
+                                            position_mean),
+                           operation::minus(initial_position[pp],
+                                            initial_position_mean));
         autocorrelation /= nr_particles;
         output_correlation_time << measure_times[tt] << "\t"
                                 << autocorrelation << "\n";

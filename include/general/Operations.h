@@ -637,8 +637,10 @@ namespace operation
   void rotate
   (Container const& input, double theta, Container& output)
   {
-    output[0] = std::cos(theta)*input[0]-std::sin(theta)*input[1];
-    output[1] = std::sin(theta)*input[0]+std::cos(theta)*input[1];
+    double cos = std::cos(theta);
+    double sin = std::sin(theta);
+    output[0] = cos*input[0]-sin*input[1];
+    output[1] = sin*input[0]+cos*input[1];
   }
   
   template <typename Container>
