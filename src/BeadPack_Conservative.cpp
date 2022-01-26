@@ -294,8 +294,6 @@ int main(int argc, const char * argv[])
         auto state_copy = particle.state_new();
         boundaries.boundary_periodic.translate(state_copy.position,state_copy.periodicity);
         boundary_cubic_cell(state_copy);
-        std::vector<double> position_plane;
-        position_plane.reserve(geometry.dim-1);
           
         return state_copy.position;
       };
