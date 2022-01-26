@@ -286,7 +286,19 @@ int main(int argc, const char * argv[])
     }
     case 2:
     {
-      std::vector<State::Position> initial_position(nr_particles);
+      boundary::Periodic boundary_cubic_cell{ geometry.boundaries };
+      auto getter_position_cubic_cell =
+      [&boundary_cubic_cell,&boundaries,&geometry]
+      (CTRW::Particle const& particle)
+      {
+        auto state_copy = particle.state_new();
+        boundaries.boundary_periodic.translate(state_copy.position,state_copy.periodicity);
+        boundary_cubic_cell(state_copy);
+        std::vector<double> position_plane;
+        position_plane.reserve(geometry.dim-1);
+          
+        return state_copy.position;
+      };
       
       std::string filename_output_correlation_time = output_dir + "/" +
         filename_output_base + "_position_fluctuations_autocorrelation_time_" + initial_condition_name +
@@ -303,16 +315,17 @@ int main(int argc, const char * argv[])
       std::cout << "\tTime [adv times] = " << measure_times[0]/advection_time << "\t"
                 << "Max time [adv times] = " << measure_times.back()/advection_time << "\n";
       
+      std::vector<State::Position> initial_position(nr_particles);
       for (std::size_t pp = 0; pp < nr_particles; ++pp)
-        initial_position[pp] = getter_position(ctrw.particles(pp));
+        initial_position[pp] = getter_position_cubic_cell(ctrw.particles(pp));
       auto initial_position_mean = State::Position(Geometry::dim);
       for (auto const& part : ctrw.particles())
-        operation::plus_InPlace(initial_position_mean, getter_position(part));
+        operation::plus_InPlace(initial_position_mean, getter_position_cubic_cell(part));
       operation::div_scalar_InPlace(initial_position_mean, nr_particles);
       double autocorrelation = 0.;
       for (std::size_t pp = 0; pp < nr_particles; ++pp)
         autocorrelation +=
-          operation::dot(operation::minus(getter_position(ctrw.particles(pp)),
+          operation::dot(operation::minus(getter_position_cubic_cell(ctrw.particles(pp)),
                                           initial_position_mean),
                          operation::minus(initial_position[pp],
                                           initial_position_mean));
@@ -329,12 +342,12 @@ int main(int argc, const char * argv[])
         
         auto position_mean = State::Position(Geometry::dim);
         for (auto const& part : ctrw.particles())
-          operation::plus_InPlace(position_mean, getter_position(part));
+          operation::plus_InPlace(position_mean, getter_position_cubic_cell(part));
         operation::div_scalar_InPlace(position_mean, nr_particles);
         double autocorrelation = 0.;
         for (std::size_t pp = 0; pp < nr_particles; ++pp)
           autocorrelation +=
-            operation::dot(operation::minus(getter_position(ctrw.particles(pp)),
+            operation::dot(operation::minus(getter_position_cubic_cell(ctrw.particles(pp)),
                                             position_mean),
                            operation::minus(initial_position[pp],
                                             initial_position_mean));
