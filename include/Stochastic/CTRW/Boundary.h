@@ -433,10 +433,9 @@ namespace boundary
                                  +(radius_sq-pos_sq_old)/norm_sq_jump)-aux;
         
         // Avoid numerical issues
-        if (alpha <= 0.)
+        if (alpha <= 0. || useful::isnan(alpha))
         {
-          double radial_pos_sq = operation::abs_sq(state.position);
-          operation::times_scalar_InPlace(radius/std::sqrt(radial_pos_sq),
+          operation::times_scalar_InPlace(radius/operation::abs(state.position),
                                           state.position);
           break;
         }
@@ -534,7 +533,7 @@ namespace boundary
                                  +(radius_sq-radial_pos_sq_old)/norm_sq_jump)-aux;
         
         // Avoid numerical issues
-        if (alpha <= 0.)
+        if (alpha <= 0. || useful::isnan(alpha))
         {
            double radial_pos_sq = std::inner_product(
              state.position.cbegin()+begin_transverse,

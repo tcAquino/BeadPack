@@ -50,6 +50,7 @@ int main(int argc, const char * argv[])
               << "                   at each measurement time\n"
               << "               1 - Output particle positions, one per file line, at final time only\n"
               << "               2 - Output position fluctuations autocorrelation in time\n"
+              << "               3 - Output distance to wall fluctuations autocorrelation in time\n"
               << "initial_condition_type : 0 - Uniformly random in the void space on a plane\n"
               << "                       : 1 - Flux-weighted in the void space on a plane\n"
               << "                       : 2 - Uniformly random in the void space in bounding box\n"
@@ -288,7 +289,7 @@ int main(int argc, const char * argv[])
     {
       boundary::Periodic boundary_cubic_cell{ geometry.boundaries };
       auto getter_position_cubic_cell =
-      [&boundary_cubic_cell,&boundaries,&geometry]
+      [&boundary_cubic_cell,&boundaries]
       (CTRW::Particle const& particle)
       {
         auto state_copy = particle.state_new();
@@ -346,6 +347,71 @@ int main(int argc, const char * argv[])
         for (std::size_t pp = 0; pp < nr_particles; ++pp)
           autocorrelation +=
             operation::dot(operation::minus(getter_position_cubic_cell(ctrw.particles(pp)),
+                                            position_mean),
+                           operation::minus(initial_position[pp],
+                                            initial_position_mean));
+        autocorrelation /= nr_particles;
+        output_correlation_time << measure_times[tt] << "\t"
+                                << autocorrelation << "\n";
+      }
+      break;
+    }
+    case 3:
+    {
+      auto getter_distance_wall =
+      [&bead_pack](CTRW::Particle const& part)
+      {
+        return std::sqrt(bead_pack.nearest_surface(part.state_new().position).second);
+      };
+      
+      std::string filename_output_correlation_time = output_dir + "/" +
+        filename_output_base + "_distance_wall_fluctuations_autocorrelation_time_" + initial_condition_name +
+        "_" + data_set + "_" + params + ".dat";
+      auto output_correlation_time = useful::open_write(filename_output_correlation_time);
+      output_correlation_time << std::setprecision(8)
+                              << std::scientific;
+      
+      std::cout << std::setprecision(2)
+                << std::scientific;
+        
+      ptrw.evolve(measure_times[0]);
+      
+      std::cout << "\tTime [adv times] = " << measure_times[0]/advection_time << "\t"
+                << "Max time [adv times] = " << measure_times.back()/advection_time << "\n";
+      
+      std::vector<double> initial_position(nr_particles);
+      for (std::size_t pp = 0; pp < nr_particles; ++pp)
+        initial_position[pp] = getter_distance_wall(ctrw.particles(pp));
+      double initial_position_mean = 0.;
+      for (auto const& part : ctrw.particles())
+        operation::plus_InPlace(initial_position_mean, getter_distance_wall(part));
+      operation::div_scalar_InPlace(initial_position_mean, nr_particles);
+      double autocorrelation = 0.;
+      for (std::size_t pp = 0; pp < nr_particles; ++pp)
+        autocorrelation +=
+          operation::dot(operation::minus(getter_distance_wall(ctrw.particles(pp)),
+                                          initial_position_mean),
+                         operation::minus(initial_position[pp],
+                                          initial_position_mean));
+      autocorrelation /= nr_particles;
+      output_correlation_time << measure_times[0] << "\t"
+                              << autocorrelation << "\n";
+      
+      for (std::size_t tt = 1; tt < measure_times.size(); ++tt)
+      {
+        ptrw.evolve(measure_times[tt]);
+        
+        std::cout << "\tTime [adv times] = " << measure_times[tt]/advection_time << "\t"
+                  << "Max time [adv times] = " << measure_times.back()/advection_time << "\n";
+        
+        double position_mean = 0.;
+        for (auto const& part : ctrw.particles())
+          operation::plus_InPlace(position_mean, getter_distance_wall(part));
+        operation::div_scalar_InPlace(position_mean, nr_particles);
+        double autocorrelation = 0.;
+        for (std::size_t pp = 0; pp < nr_particles; ++pp)
+          autocorrelation +=
+            operation::dot(operation::minus(getter_distance_wall(ctrw.particles(pp)),
                                             position_mean),
                            operation::minus(initial_position[pp],
                                             initial_position_mean));
