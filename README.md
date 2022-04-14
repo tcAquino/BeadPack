@@ -19,7 +19,8 @@ See the manual file Manual.pdf in the man directory for further details and help
 
 ## Citations
 
-Please link to this repository (https://github.com/tcAquino/BeadPack).
+Please link to this repository (https://github.com/tcAquino/BeadPack). If relevant, please cite the original publication: 
+- Aquino, Tomás, and Tanguy Le Borgne. "The chemical continuous time random walk framework for upscaling transport limitations in fluid–solid reactions." Advances in Water Resources 154 (2021): 103981.
 
 ## License
 
